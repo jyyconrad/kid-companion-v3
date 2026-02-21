@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`MessageBubble Component renders AI message correctly 1`] = `null`;
+
+exports[`MessageBubble Component renders user message correctly 1`] = `null`;

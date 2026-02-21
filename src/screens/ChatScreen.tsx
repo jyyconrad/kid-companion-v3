@@ -10,7 +10,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { aiService, Message as AIMessage } from '../services/aiService';
-import { use AppConfig } from '../store/useAppConfig';
+import { useAppConfig } from '../store/useAppConfig';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -120,7 +120,7 @@ export const ChatScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              < {!isConfigLoaded ? (
+              {!isConfigLoaded ? (
                 <Text style={styles.loadingText}>正在加载配置...</Text>
               ) : (
                 <>

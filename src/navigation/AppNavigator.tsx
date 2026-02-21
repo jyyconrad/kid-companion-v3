@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,7 +12,9 @@ import { FeatureConfigScreen } from '../screens/FeatureConfigScreen';
 import { PersonaEditScreen } from '../screens/PersonaEditScreen';
 import { PersonaGuideScreen } from '../screens/PersonaGuideScreen';
 import { WelcomeGuide } from '../screens/WelcomeGuide';
+import WizardScreen from '../screens/WizardScreen';
 import { useAppConfig } from '../store/useAppConfig';
+import { wizardService } from '../services/wizardService';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -69,17 +72,46 @@ const ProfileStack = () => {
 
 export const AppNavigator: React.FC = () => {
   const config = useAppConfig();
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
-    config.loadConfig();
-  }, []);
+    const checkConfiguration = async () => {
+      try {
+        const characterConfig = await wizardService.loadCharacterConfig();
+        const hasPersona = config.persona.isInitialized && config.apiKey;
+        setIsConfigured(!!characterConfig || hasPersona);
+      } catch (error) {
+        console.error('检查配置状态失败:', error);
+        setIsConfigured(false);
+      }
+    };
 
-  // Show welcome guide if not initialized
-  if (!config.persona.isInitialized || !config.apiKey) {
+    config.loadConfig();
+    checkConfiguration();
+  }, [config]);
+
+  // 配置状态未确定时，显示加载
+  if (isConfigured === null) {
     return (
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="WelcomeGuide" component={WelcomeGuide} />
+          <Stack.Screen name="Loading" component={() => (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="hourglass-outline" size={48} color="#4A90E2" />
+              <Text style={{ marginTop: 16 }}>正在加载...</Text>
+            </View>
+          )} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
+  // Show wizard screen if not configured
+  if (!isConfigured) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="WizardScreen" component={WizardScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     );

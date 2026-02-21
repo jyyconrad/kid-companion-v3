@@ -9,19 +9,38 @@ export interface Message {
 
 export class AIService {
   async sendMessage(
-    messages: Message[],
+    text: string | Message[],
+    options?: any,
     onChunk?: (chunk: string) => void
   ): Promise<string> {
     // 每次调用都获取最新配置
     const config = useAppConfig.getState();
-    const { apiUrl, apiKey, models, features, persona } = config;
+    const { apiUrl, apiKey, models } = config;
 
     if (!apiKey) {
       throw new Error('API Key未配置');
     }
 
-    // 构建系统提示词
-    const systemPrompt = this.buildSystemPrompt(persona);
+    // 确定系统提示词
+    let systemPrompt = '';
+    if (options?.context?.isWizard) {
+      // 向导模式使用特定的系统提示词
+      systemPrompt = options?.context?.systemPrompt || 
+        '你是一个友好的AI伙伴配置向导，负责收集关于孩子的信息。';
+    } else {
+      // 常规模式使用默认系统提示词
+      systemPrompt = this.buildSystemPrompt(config.persona);
+    }
+
+    // 准备消息
+    let messages: Message[];
+    if (typeof text === 'string') {
+      // 简单文本输入
+      messages = [{ id: '1', role: 'user', content: text, timestamp: Date.now() }];
+    } else {
+      // 消息数组
+      messages = text;
+    }
 
     // 调用AI API
     const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey);
