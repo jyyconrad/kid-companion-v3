@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     backgroundColor: 'white',
   },
-'  container: {
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
