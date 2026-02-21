@@ -6,15 +6,19 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { MessageBubble, Message } from '../components/MessageBubble';
+import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
-import { useChatStore } from '../store/chatStore';
+import { aiService, Message as AIMessage } from '../services/aiService';
+import { useAppConfig } from '../store/useAppConfig';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
-  const flatListRef = useRef<FlatList<Message>>(null);
-  const { messages, isLoading, error, addMessage, setLoading, setError } = useChatStore();
+  const [messages, setMessages] = useState<AIMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList<AIMessage>>(null);
+  const config = useAppConfig();
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -25,6 +29,7 @@ export const ChatScreen: React.FC = () => {
   useEffect(() => {
     if (error) {
       Alert.alert('聊天错误', error);
+      setError(null);
     }
   }, [error]);
 
@@ -35,46 +40,57 @@ export const ChatScreen: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    const userMessage: Message = {
+    if (!config.apiKey) {
+      Alert.alert('提示', '请先在"我的"页面配置API');
+      return;
+    }
+
+    const userMessage: AIMessage = {
       id: generateMessageId(),
-      type: 'user',
+      role: 'user',
       content: text.trim(),
-      timestamp: new Date(),
+      timestamp: Date.now(),
     };
-    addMessage(userMessage);
-    setLoading(true);
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
 
     try {
-      // 模拟AI回复（实际应该调用API）
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟延迟
-      
-      const mockResponses = [
-        '这是一个很好的问题！让我来告诉你...',
-        '哇，你真聪明！这个问题很有趣。',
-        '我明白了！让我用简单的方式解释一下。',
-        '太棒了！我们一起探索这个话题吧。',
-        '好问题！其实很简单...',
-      ];
-      
-      const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-      
-      const aiMessage: Message = {
+      // 更新config状态以获取最新配置
+      await config.loadConfig();
+
+      // 调用AI服务
+      const response = await aiService.sendMessage(messages, (chunk) => {
+        // TODO: 实现流式输出
+        console.log('Chunk:', chunk);
+      });
+
+      const aiMessage: AIMessage = {
         id: generateMessageId(),
-        type: 'ai',
-        content: randomResponse + ' （这是模拟回复，实际应该连接真实的AI API）',
-        timestamp: new Date(),
+        role: 'assistant',
+        content: response,
+        timestamp: Date.now(),
       };
-      addMessage(aiMessage);
+
+      setMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
       console.error('聊天请求失败:', err);
-      setError('聊天请求失败，请检查网络连接或API配置');
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      setError(`聊天请求失败：${errorMessage}`);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    return <MessageBubble message={item} />;
+  const renderMessage = ({ item }: { item: AIMessage }) => {
+    return <MessageBubble message={
+      {
+        id: item.id,
+        type: item.role === 'user' ? 'user' : 'ai',
+        content: item.content,
+        timestamp: new Date(item.timestamp),
+      }
+    } />;
   };
 
   return (
@@ -88,16 +104,25 @@ export const ChatScreen: React.FC = () => {
           style={styles.messageList}
           contentContainerStyle={styles.messageListContent}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                我是{config.persona.aiName}，很高兴认识你！
+              </Text>
+              <Text style={styles.emptySubText}>
+                {config.persona.chatStyle} · 开始聊天吧！
+              </Text>
+            </View>
+          }
         />
         {isLoading && <LoadingIndicator />}
       </View>
-      <MessageInput
-        onSend={handleSendMessage}
-        disabled={isLoading}
-      />
+      <MessageInput onSend={handleSendMessage} disabled={isLoading} />
     </SafeAreaView>
   );
 };
+
+const { Text } = require('react-native');
 
 const styles = StyleSheet.create({
   container: {
@@ -113,5 +138,23 @@ const styles = StyleSheet.create({
   },
   messageListContent: {
     paddingTop: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });
