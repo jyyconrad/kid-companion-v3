@@ -9,6 +9,7 @@ import { ApiConfigScreen } from '../screens/ApiConfigScreen';
 import { ModelSelectScreen } from '../screens/ModelSelectScreen';
 import { FeatureConfigScreen } from '../screens/FeatureConfigScreen';
 import { PersonaEditScreen } from '../screens/PersonaEditScreen';
+import { PersonaGuideScreen } from '../screens/PersonaGuideScreen';
 import { WelcomeGuide } from '../screens/WelcomeGuide';
 import { useAppConfig } from '../store/useAppConfig';
 
@@ -56,6 +57,11 @@ const ProfileStack = () => {
         name="PersonaEditScreen"
         component={PersonaEditScreen}
         options={{ title: 'AI角色设置' }}
+      />
+      <Stack.Screen
+        name="PersonaGuideScreen"
+        component={PersonaGuideScreen}
+        options={{ title: '角色配置' }}
       />
     </Stack.Navigator>
   );

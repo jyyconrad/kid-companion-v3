@@ -10,6 +10,7 @@ type RootStackParamList = {
   ModelSelectScreen: undefined;
   FeatureConfigScreen: undefined;
   PersonaEditScreen: undefined;
+  PersonaGuideScreen: undefined;
 };
 
 type MyProfileProps = NativeStackScreenProps<RootStackParamList, 'MyProfile'>;
@@ -63,6 +64,22 @@ export const MyProfile: React.FC<MyProfileProps> = ({ navigation }) => {
         </TouchableOpacity>
 
         <Text style={styles.groupTitle}>AI人设</Text>
+
+        <TouchableOpacity
+          style={styles.section}
+          onPress={() => navigation.navigate('PersonaGuideScreen')}
+        >
+          <View style={styles.sectionLeft}>
+            <Ionicons name="sparkles" size={24} color="#4A90E2" />
+            <View>
+              <Text style={styles.sectionTitle}>角色配置</Text>
+              <Text style={styles.sectionSubtitle}>
+                一步步引导生成专属AI
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.section}

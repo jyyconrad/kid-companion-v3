@@ -10,15 +10,26 @@ import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { aiService, Message as AIMessage } from '../services/aiService';
-import { useAppConfig } from '../store/useAppConfig';
+import { use AppConfig } from '../store/useAppConfig';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const flatListRef = useRef<FlatList<AIMessage>>(null);
   const config = useAppConfig();
+
+  // 启动时加载配置
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    await config.loadConfig();
+    setIsConfigLoaded(true);
+  };
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -40,6 +51,12 @@ export const ChatScreen: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
+    // 确保配置已加载
+    if (!isConfigLoaded) {
+      Alert.alert('提示', '正在加载配置，请稍后...');
+      return;
+    }
+
     if (!config.apiKey) {
       Alert.alert('提示', '请先在"我的"页面配置API');
       return;
@@ -56,9 +73,6 @@ export const ChatScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 更新config状态以获取最新配置
-      await config.loadConfig();
-
       // 调用AI服务
       const response = await aiService.sendMessage(messages, (chunk) => {
         // TODO: 实现流式输出
@@ -106,12 +120,23 @@ export const ChatScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                我是{config.persona.aiName}，很高兴认识你！
-              </Text>
-              <Text style={styles.emptySubText}>
-                {config.persona.chatStyle} · 开始聊天吧！
-              </Text>
+              < {!isConfigLoaded ? (
+                <Text style={styles.loadingText}>正在加载配置...</Text>
+              ) : (
+                <>
+                  <Text style={styles.emptyText}>
+                    我是{config.persona.aiName}，很高兴认识你！
+                  </Text>
+                  <Text style={styles.emptySubText}>
+                    {config.persona.chatStyle} · 开始聊天吧！
+                  </Text>
+                  {!config.apiKey && (
+                    <Text style={styles.configHint}>
+                      请先在"我的"页面配置API
+                    </Text>
+                  )}
+                </>
+              )}
             </View>
           }
         />
@@ -155,6 +180,16 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: 14,
     color: '#999',
+    textAlign: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  configHint: {
+    fontSize: 14,
+    color: '#4A90E2',
+    marginTop: 16,
     textAlign: 'center',
   },
 });
