@@ -8,13 +8,13 @@ export interface Message {
 }
 
 export class AIService {
-  private config = useAppConfig.getState();
-
   async sendMessage(
     messages: Message[],
     onChunk?: (chunk: string) => void
   ): Promise<string> {
-    const { apiUrl, apiKey, models, features, persona } = this.config;
+    // 每次调用都获取最新配置
+    const config = useAppConfig.getState();
+    const { apiUrl, apiKey, models, features, persona } = config;
 
     if (!apiKey) {
       throw new Error('API Key未配置');
@@ -24,7 +24,7 @@ export class AIService {
     const systemPrompt = this.buildSystemPrompt(persona);
 
     // 调用AI API
-    const response = await this.callAI(messages, systemPrompt, models.chat);
+    const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey);
 
     return response;
   }
@@ -52,10 +52,10 @@ export class AIService {
   private async callAI(
     messages: Message[],
     systemPrompt: string,
-    model: string
+    model: string,
+    apiUrl: string,
+    apiKey: string
   ): Promise<string> {
-    const { apiUrl, apiKey } = this.config;
-
     try {
       const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
@@ -78,7 +78,8 @@ export class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`API请求失败: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`API请求失败: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
