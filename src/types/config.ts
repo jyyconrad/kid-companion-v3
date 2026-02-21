@@ -1,0 +1,65 @@
+// 应用配置类型定义
+
+export interface AppConfig {
+  // API配置
+  apiUrl: string;
+  apiKey: string;
+
+  // 模型配置
+  models: {
+    chat: string;
+    story: string;
+    science: string;
+  };
+
+  // 功能配置
+  features: {
+    chat: {
+      useSearch: boolean;
+      enableVoice: boolean;
+      searchCategories: string[];
+    };
+    science: {
+      useSearch: boolean;
+      searchCategories: string[];
+    };
+  };
+
+  // AI人设
+  persona: {
+    aiName: string;
+    chatStyle: string;
+    interests: string[];
+    childAge: number;
+    isInitialized: boolean;
+  };
+}
+
+// 默认配置
+export const defaultConfig: AppConfig = {
+  apiUrl: 'https://api.openai.com/v1',
+  apiKey: '',
+  models: {
+    chat: 'gpt-3.5-turbo',
+    story: 'gpt-3.5-turbo',
+    science: 'gpt-3.5-turbo',
+  },
+  features: {
+    chat: {
+      useSearch: false,
+      enableVoice: false,
+      searchCategories: [],
+    },
+    science: {
+      useSearch: true,
+      searchCategories: ['duckduckgo'],
+    },
+  },
+  persona: {
+    aiName: '小伴童',
+    chatStyle: '温柔姐姐',
+    interests: [],
+    childAge: 6,
+    isInitialized: false,
+  },
+};

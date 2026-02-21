@@ -2,10 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { HomeScreen } from '../screens/HomeScreen';
 import { ChatScreen } from '../screens/ChatScreen';
-import { StoryScreen } from '../screens/StoryScreen';
-import { ScienceScreen } from '../screens/ScienceScreen';
+import { MyProfile } from '../screens/MyProfile';
 
 const Tab = createBottomTabNavigator();
 
@@ -13,7 +11,7 @@ export const AppNavigator: React.FC = () => {
   return (
     <NavigationContainer>
       <Tab.Navigator
-        initialRouteName="Home"
+        initialRouteName="Chat"
         screenOptions={{
           tabBarActiveTintColor: '#4A90E2',
           tabBarInactiveTintColor: '#999',
@@ -42,23 +40,6 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: '首页',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home" size={size} color={color} />
-            ),
-            headerShown: false,
-          }}
-          initialParams={{
-            onNavigateToChat: () => {},
-            onNavigateToStory: () => {},
-            onNavigateToScience: () => {},
-          }}
-        />
-
-        <Tab.Screen
           name="Chat"
           component={ChatScreen}
           options={{
@@ -70,23 +51,12 @@ export const AppNavigator: React.FC = () => {
         />
 
         <Tab.Screen
-          name="Story"
-          component={StoryScreen}
+          name="MyProfile"
+          component={MyProfile}
           options={{
-            title: '故事',
+            title: '我的',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="book" size={size} color={color} />
-            ),
-          }}
-        />
-
-        <Tab.Screen
-          name="Science"
-          component={ScienceScreen}
-          options={{
-            title: '科学',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="school" size={size} color={color} />
+              <Ionicons name="person" size={size} color={color} />
             ),
           }}
         />
