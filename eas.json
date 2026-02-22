@@ -1,19 +1,20 @@
 {
   "cli": {
-    "requireCommit": true
+    "requireCommit": true,
+    "appVersionSource": "remote"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
       "distribution": "internal"
     },
-    "preview": {
-      "distribution": "internal",
+    "production": {
       "android": {
         "buildType": "apk"
-      }
-    },
-    "production": {
+      },
       "distribution": "internal"
     }
   },

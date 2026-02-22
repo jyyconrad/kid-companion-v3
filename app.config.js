@@ -36,11 +36,15 @@ export default () => ({
   },
   plugins: [
     "expo-router",
-    "expo-font"
+    "expo-font",
+    [
+      "@react-native-voice/voice",
+      {
+        "microphonePermission": "允许 $(PRODUCT_NAME) 使用麦克风进行语音输入",
+        "speechRecognitionPermission": "允许 $(PRODUCT_NAME) 使用语音识别功能"
+      }
+    ]
   ],
-  updates: {
-    url: "https://u.expo.dev/6a820012-a4e6-46de-b580-fd84d252f379"
-  },
   extra: {
     router: {},
     eas: {
