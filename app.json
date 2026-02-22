@@ -24,7 +24,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.kidcompanionv3",
-      "minSdkVersion": 24
+      "buildProperties": {
+        "minSdkVersion": 24
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
