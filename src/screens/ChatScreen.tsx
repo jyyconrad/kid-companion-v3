@@ -74,7 +74,7 @@ export const ChatScreen: React.FC = () => {
 
     try {
       // 调用AI服务
-      const response = await aiService.sendMessage(messages, (chunk) => {
+      const response = await aiService.sendMessage(messages, (chunk: any) => {
         // TODO: 实现流式输出
         console.log('Chunk:', chunk);
       });

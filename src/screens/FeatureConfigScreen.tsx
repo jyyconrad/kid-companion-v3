@@ -79,7 +79,8 @@ export const FeatureConfigScreen: React.FC<FeatureConfigScreenProps> = (props) =
             <Switch
               value={chatUseSearch}
               onValueChange={setChatUseSearch}
-              activeColor="#4A90E2"
+              trackColor={{ false: '#E0E0E0', true: '#4A90E2' }}
+              thumbColor={chatUseSearch ? '#FFFFFF' : '#F4F3F4'}
             />
           </View>
 
@@ -88,7 +89,8 @@ export const FeatureConfigScreen: React.FC<FeatureConfigScreenProps> = (props) =
             <Switch
               value={chatEnableVoice}
               onValueChange={setChatEnableVoice}
-              activeColor="#4A90E2"
+              trackColor={{ false: '#E0E0E0', true: '#4A90E2' }}
+              thumbColor={chatEnableVoice ? '#FFFFFF' : '#F4F3F4'}
             />
           </View>
 
@@ -121,8 +123,6 @@ export const FeatureConfigScreen: React.FC<FeatureConfigScreenProps> = (props) =
           )}
         </View>
 
->
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>科普功能</Text>
 
@@ -131,7 +131,8 @@ export const FeatureConfigScreen: React.FC<FeatureConfigScreenProps> = (props) =
             <Switch
               value={scienceUseSearch}
               onValueChange={setScienceUseSearch}
-              activeColor="#4A90E2"
+              trackColor={{ false: '#E0E0E0', true: '#4A90E2' }}
+              thumbColor={scienceUseSearch ? '#FFFFFF' : '#F4F3F4'}
             />
           </View>
 

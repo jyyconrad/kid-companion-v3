@@ -21,7 +21,7 @@ import { aiService } from '../services/aiService';
 interface Message {
   id: string;
   type: 'user' | 'ai';
-  text: string;
+  content: string;
   timestamp: Date;
 }
 
@@ -71,22 +71,22 @@ const WizardScreen: React.FC = () => {
   };
 
   // 添加 AI 消息
-  const addAiMessage = (text: string) => {
+  const addAiMessage = (content: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       type: 'ai',
-      text,
+      content,
       timestamp: new Date(),
     };
     addMessage(newMessage);
   };
 
   // 添加用户消息
-  const addUserMessage = (text: string) => {
+  const addUserMessage = (content: string) => {
     const newMessage: Message = {
       id: (Date.now() + 1).toString(),
       type: 'user',
-      text,
+      content,
       timestamp: new Date(),
     };
     addMessage(newMessage);

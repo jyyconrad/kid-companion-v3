@@ -42,7 +42,7 @@ export class SearchService {
             sourceResults = await this.searchPerplexity(query, resultsPerSource);
             break;
           default:
-           arez break;
+            break;
         }
 
         results.push(...sourceResults);

@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     margin: 16,
     backgroundColor: '#4A90E2',
     borderRadius: 12,
-    paddingVertical:与其他14,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   saveButtonText: {

@@ -30,7 +30,8 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "updates": {
       "url": "https://u.expo.dev/6a820012-a4e6-46de-b580-fd84d252f379"

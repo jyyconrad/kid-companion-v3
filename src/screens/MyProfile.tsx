@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { useAppConfig } from '../store/useAppConfig';
 
 type RootStackParamList = {
@@ -13,9 +13,8 @@ type RootStackParamList = {
   PersonaGuideScreen: undefined;
 };
 
-type MyProfileProps = NativeStackScreenProps<RootStackParamList, 'MyProfile'>;
-
-export const MyProfile: React.FC<MyProfileProps> = ({ navigation }) => {
+export const MyProfile: React.FC = () => {
+  const navigation = useNavigation<any>();
   const config = useAppConfig();
 
   return (

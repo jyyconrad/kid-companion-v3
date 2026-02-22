@@ -26,9 +26,8 @@ const ProfileStack = () => {
       screenOptions={{
         headerStyle: {
           backgroundColor: 'white',
-          borderBottomWidth: 1,
-          borderBottomColor: '#E0E0E0',
         },
+        headerShadowVisible: true,
         headerTitleStyle: {
           fontSize: 18,
           fontWeight: 'bold',
@@ -78,7 +77,7 @@ export const AppNavigator: React.FC = () => {
     const checkConfiguration = async () => {
       try {
         const characterConfig = await wizardService.loadCharacterConfig();
-        const hasPersona = config.persona.isInitialized && config.apiKey;
+        const hasPersona = config.persona.isInitialized && !!config.apiKey;
         setIsConfigured(!!characterConfig || hasPersona);
       } catch (error) {
         console.error('检查配置状态失败:', error);
@@ -138,9 +137,8 @@ export const AppNavigator: React.FC = () => {
           },
           headerStyle: {
             backgroundColor: 'white',
-            borderBottomWidth: 1,
-            borderBottomColor: '#E0E0E0',
           },
+          headerShadowVisible: true,
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: 'bold',
