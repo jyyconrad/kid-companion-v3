@@ -31,13 +31,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "允许 $(PRODUCT_NAME) 使用麦克风进行语音输入",
-          "speechRecognitionPermission": "允许 $(PRODUCT_NAME) 使用语音识别功能"
-        }
-      ],
       "expo-font"
     ],
     "updates": {
