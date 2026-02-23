@@ -14,6 +14,7 @@ import { VoiceInput } from '../components/VoiceInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { aiService, Message as AIMessage } from '../services/aiService';
 import { useAppConfig } from '../store/useAppConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -22,6 +23,7 @@ export const ChatScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
+  const [hasWelcomed, setHasWelcomed] = useState(false);
   const flatListRef = useRef<FlatList<AIMessage>>(null);
   const config = useAppConfig();
   const currentAIResponse = useRef<string>('');
@@ -31,9 +33,63 @@ export const ChatScreen: React.FC = () => {
     loadConfig();
   }, []);
 
+  // 首次进入时触发欢迎消息
+  useEffect(() => {
+    if (isConfigLoaded && !hasWelcomed && messages.length === 0) {
+      triggerWelcomeMessage();
+      setHasWelcomed(true);
+    }
+  }, [isConfigLoaded, hasWelcomed, messages.length]);
+
   const loadConfig = async () => {
     await config.loadConfig();
     setIsConfigLoaded(true);
+  };
+
+  // 触发欢迎消息
+  const triggerWelcomeMessage = async () => {
+    try {
+      // 检查是否是首次访问
+      const lastVisit = await AsyncStorage.getItem('@last_visit');
+      const isFirstVisit = !lastVisit;
+      
+      // 获取孩子名字
+      const userMd = await AsyncStorage.getItem('@kid_companion_user');
+      const childNameMatch = userMd?.match(/名字 [::]\s*(.+)/);
+      const childName = childNameMatch ? childNameMatch[1].trim() : '小朋友';
+      
+      // 构建欢迎提示词
+      const welcomePrompt = `你是${config.persona.aiName || '小伴童'}，正在和${childName}打招呼。
+${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再次见面，要说又见面啦'}。
+请说一句友好的欢迎话（简短、有趣、使用表情符号），并询问今天想做什么（聊天、听故事、学科普）。
+要求：不超过 50 字，亲切友好。`;
+
+      const response = await aiService.sendMessage(welcomePrompt, { context: { isWelcome: true } });
+      
+      // 显示欢迎消息
+      const welcomeMessage: AIMessage = {
+        id: generateMessageId(),
+        role: 'assistant',
+        content: response,
+        timestamp: Date.now(),
+      };
+      
+      setMessages(prev => [...prev, welcomeMessage]);
+      
+      // 自动播放语音
+      if (autoPlayEnabled) {
+        await Speech.speak(response, {
+          language: 'zh-CN',
+          pitch: 1.0,
+          rate: 0.9,
+        });
+      }
+      
+      // 记录访问时间
+      await AsyncStorage.setItem('@last_visit', Date.now().toString());
+    } catch (error) {
+      console.error('欢迎消息失败:', error);
+    }
   };
 
   // 消息变化时滚动到底部

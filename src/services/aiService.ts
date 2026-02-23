@@ -91,6 +91,34 @@ export class AIService {
     }
   }
 
+  // 构建动态上下文（日期、时间、时段）
+  private async buildDynamicContext(): Promise<string> {
+    const now = new Date();
+    const date = now.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const time = now.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    const hour = now.getHours();
+    let timeOfDay = '晚上';
+    if (hour >= 5 && hour < 12) timeOfDay = '早上';
+    else if (hour >= 12 && hour < 18) timeOfDay = '下午';
+    
+    const weekday = now.toLocaleDateString('zh-CN', { weekday: 'long' });
+    
+    return `## 当前上下文
+- **日期**: ${date}
+- **时间**: ${time}
+- **时段**: ${timeOfDay}
+- **星期**: ${weekday}
+`;
+  }
+
   private async buildSystemPromptFromFiles(persona: any, language: string = 'zh-CN'): Promise<string> {
     try {
       const systemMd = await AsyncStorage.getItem('@kid_companion_system');
@@ -98,7 +126,9 @@ export class AIService {
       const identityMd = await AsyncStorage.getItem('@kid_companion_identity');
 
       if (systemMd && userMd && identityMd) {
-        return `${systemMd}\n\n${userMd}\n\n${identityMd}\n\n请始终使用 Markdown 格式回复。`;
+        // 添加动态上下文
+        const dynamicContext = await this.buildDynamicContext();
+        return `${systemMd}\n\n${dynamicContext}\n${userMd}\n\n${identityMd}\n\n请始终使用 Markdown 格式回复。`;
       }
     } catch (error) {
       console.error('加载配置文件失败:', error);

@@ -179,7 +179,7 @@ const WizardScreen: React.FC = () => {
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainApp' as never }],
+          routes: [{ name: 'Chat' as never }],
         });
       }, 3000);
       
