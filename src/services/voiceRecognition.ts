@@ -12,9 +12,9 @@ export interface VoiceRecognitionResult {
   isFinal: boolean;
 }
 
-export function useVoiceRecognition(options: VoiceRecognitionOptions = {}) {
+export function useVoiceRecognition(options: VoiceRecognitionOptions = {}, configLanguage?: string) {
   const {
-    language = 'zh-CN',
+    language = configLanguage || 'zh-CN',
     partialResults = true,
     maxDuration = 30
   } = options;

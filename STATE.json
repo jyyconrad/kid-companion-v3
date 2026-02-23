@@ -1,121 +1,70 @@
 {
-  "projectName": "kid-companion",
-  "version": "v3.1",
-  "path": "/root/.openclaw/workspace/projects/kid-companion-v3",
-  "description": "KidCompanion - React Native Expo应用，儿童智能陪伴",
-  "createdAt": "2026-02-20T02:35:00+08:00",
-  "lastUpdated": "2026-02-20T03:22:00+08:00",
-  "currentPhase": "development",
-  "phases": {
-    "initialization": {
-      "status": "completed",
-      "description": "项目初始化和依赖安装",
-      "completedAt": "2026-02-20T02:35:00+08:00",
-      "tasks": [
-        {
-          "name": "Expo项目创建",
-          "status": "completed",
-          "completedAt": "2026-02-20T02:34:00+08:00"
+    "projectName": "kid-companion",
+    "version": "v3.1",
+    "path": "/root/.openclaw/workspace-coding/projects/kid-companion-v3",
+    "description": "KidCompanion - React Native Expo 应用，儿童智能陪伴",
+    "createdAt": "2026-02-20T02:35:00+08:00",
+    "lastUpdated": "2026-02-23T07:30:00+08:00",
+    "currentPhase": "completed",
+    "phases": {
+        "initialization": {
+            "status": "completed",
+            "description": "项目初始化和依赖安装",
+            "completedAt": "2026-02-20T02:35:00+08:00"
         },
-        {
-          "name": "依赖安装",
-          "status": "completed",
-          "completedAt": "2026-02-20T02:35:00+08:00",
-          "details": "已安装696个包"
+        "development": {
+            "status": "completed",
+            "description": "核心功能开发",
+            "completedAt": "2026-02-20T03:22:00+08:00"
         },
-        {
-          "name": "AI SDK配置",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00"
+        "voice": {
+            "status": "completed",
+            "description": "语音输入功能开发",
+            "completedAt": "2026-02-23T07:30:00+08:00",
+            "tasks": [
+                {
+                    "name": "创建 VoiceInput 组件",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00",
+                    "details": "src/components/VoiceInput.tsx"
+                },
+                {
+                    "name": "ChatScreen 集成",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00",
+                    "details": "src/screens/ChatScreen.tsx"
+                },
+                {
+                    "name": "语音功能测试",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00"
+                }
+            ]
+        },
+        "build": {
+            "status": "completed",
+            "description": "本地构建配置",
+            "completedAt": "2026-02-23T07:30:00+08:00",
+            "tasks": [
+                {
+                    "name": "eas.json 配置",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00"
+                },
+                {
+                    "name": "构建脚本创建",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00",
+                    "details": "scripts/build-ios.sh, scripts/build-android.sh"
+                },
+                {
+                    "name": "构建测试",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T07:30:00+08:00"
+                }
+            ]
         }
-      ]
     },
-    "development": {
-      "status": "completed",
-      "description": "核心功能开发",
-      "completedAt": "2026-02-20T03:22:00+08:00",
-      "tasks": [
-        {
-          "name": "聊天功能 - 创建 ChatScreen",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/screens/ChatScreen.tsx"
-        },
-        {
-          "name": "聊天功能 - 创建 MessageBubble",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/MessageBubble.tsx"
-        },
-        {
-          "name": "聊天功能 - 创建 MessageInput",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/MessageInput.tsx"
-        },
-        {
-          "name": "聊天功能 - 创建 LoadingIndicator",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/LoadingIndicator.tsx"
-        },
-        {
-          "name": "聊天功能 - 集成AI SDK",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "使用 @ai-sdk/openai"
-        },
-        {
-          "name": "故事功能 - 创建 StoryScreen",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/screens/StoryScreen.tsx"
-        },
-        {
-          "name": "故事功能 - 创建 StoryCard",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/StoryCard.tsx"
-        },
-        {
-          "name": "故事功能 - 创建 StoryPlayer",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/StoryPlayer.tsx"
-        },
-        {
-          "name": "科学知识功能 - 创建 ScienceScreen",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/screens/ScienceScreen.tsx"
-        },
-        {
-          "name": "科学知识功能 - 创建 KnowledgeCard",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/KnowledgeCard.tsx"
-        },
-        {
-          "name": "科学知识功能 - 创建 KnowledgeDetail",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/components/KnowledgeDetail.tsx"
-        },
-        {
-          "name": "导航和整合 - 创建 AppNavigator",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/navigation/AppNavigator.tsx"
-        },
-        {
-          "name": "导航和整合 - 创建 HomeScreen",
-          "status": "completed",
-          "completedAt": "2026-02-20T03:22:00+08:00",
-          "details": "src/screens/HomeScreen.tsx"
-        }
-      ]
-    }
-  },
-  "overallProgress": 100,
-  "notes": "项目已完成所有核心功能开发，包括聊天、故事讲述和科学知识功能。使用 React Native (Expo) + TypeScript + AI SDK (@ai-sdk/openai, ai) 实现。"
+    "overallProgress": 100,
+    "notes": "项目已完成所有核心功能开发，包括聊天、故事讲述、科学知识功能、语音输入和本地构建配置。使用 React Native (Expo) + TypeScript + AI SDK 实现。"
 }

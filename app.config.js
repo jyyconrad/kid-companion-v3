@@ -4,13 +4,12 @@
  * @type {import('expo').ConfigFunction}
  */
 export default () => ({
-  name: "kid-companion-v3",
-  slug: "kid-companion-v3",
+  name: "kid-companion-jyy",
+  slug: "kid-companion-jyy",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
-  newArchEnabled: true,
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
@@ -28,7 +27,7 @@ export default () => ({
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: "com.anonymous.kidcompanionv3",
-    minSdkVersion: 24
+    versionCode: 1
   },
   web: {
     favicon: "./assets/favicon.png",
@@ -36,19 +35,12 @@ export default () => ({
   },
   plugins: [
     "expo-router",
-    "expo-font",
-    [
-      "@react-native-voice/voice",
-      {
-        "microphonePermission": "允许 $(PRODUCT_NAME) 使用麦克风进行语音输入",
-        "speechRecognitionPermission": "允许 $(PRODUCT_NAME) 使用语音识别功能"
-      }
-    ]
+    "expo-font"
   ],
   extra: {
     router: {},
     eas: {
-      projectId: "6a820012-a4e6-46de-b580-fd84d252f379"
+      projectId: "9b5b723a-f716-4531-a2dd-5415177e41bd"
     }
   }
 });

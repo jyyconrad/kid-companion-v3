@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
+import { VoiceInput } from '../components/VoiceInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { aiService, Message as AIMessage } from '../services/aiService';
 import { useAppConfig } from '../store/useAppConfig';

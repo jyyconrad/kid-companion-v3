@@ -13,9 +13,10 @@ import * as Speech from 'expo-speech';
 interface StoryPlayerProps {
   title: string;
   content: string;
+  language?: string;
 }
 
-export const StoryPlayer: React.FC<StoryPlayerProps> = ({ title, content }) => {
+export const StoryPlayer: React.FC<StoryPlayerProps> = ({ title, content, language = 'zh-CN' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -30,7 +31,7 @@ export const StoryPlayer: React.FC<StoryPlayerProps> = ({ title, content }) => {
         setIsPlaying(true);
         setSpeaking(true);
         await Speech.speak(content, {
-          language: 'zh-CN',
+          language,
           pitch: 1.0,
           rate: 0.9,
           onDone: () => {

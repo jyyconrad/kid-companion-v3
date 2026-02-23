@@ -25,6 +25,9 @@ export interface AppConfig {
     };
   };
 
+  // 语言配置
+  language: string;
+
   // AI人设
   persona: {
     aiName: string;
@@ -55,6 +58,7 @@ export const defaultConfig: AppConfig = {
       searchCategories: ['duckduckgo'],
     },
   },
+  language: 'zh-CN',
   persona: {
     aiName: '小伴童',
     chatStyle: '温柔姐姐',

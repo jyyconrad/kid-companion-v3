@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useAppConfig } from '../store/useAppConfig';
 
 export type MessageType = 'user' | 'ai';
 
@@ -16,6 +17,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.type === 'user';
+  const { language = 'zh-CN' } = useAppConfig.getState();
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
@@ -24,7 +26,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           {message.content}
         </Text>
         <Text style={styles.timestamp}>
-          {message.timestamp.toLocaleTimeString('zh-CN', {
+          {message.timestamp.toLocaleTimeString(language, {
             hour: '2-digit',
             minute: '2-digit',
           })}

@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "kid-companion-jyy",
-    "slug": "kid-companion-jyy",
+    "name": "kid-companion-v3",
+    "slug": "kid-companion-v3",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -32,8 +33,14 @@
       "expo-router",
       "expo-font"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/6a820012-a4e6-46de-b580-fd84d252f379"
+    },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "6a820012-a4e6-46de-b580-fd84d252f379"
+      }
     }
   }
 }

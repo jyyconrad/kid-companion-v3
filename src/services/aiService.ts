@@ -15,7 +15,7 @@ export class AIService {
   ): Promise<string> {
     // 每次调用都获取最新配置
     const config = useAppConfig.getState();
-    const { apiUrl, apiKey, models } = config;
+    const { apiUrl, apiKey, models, language } = config;
 
     if (!apiKey) {
       throw new Error('API Key未配置');
@@ -25,11 +25,11 @@ export class AIService {
     let systemPrompt = '';
     if (options?.context?.isWizard) {
       // 向导模式使用特定的系统提示词
-      systemPrompt = options?.context?.systemPrompt || 
+      systemPrompt = options?.context?.systemPrompt ||
         '你是一个友好的AI伙伴配置向导，负责收集关于孩子的信息。';
     } else {
       // 常规模式使用默认系统提示词
-      systemPrompt = this.buildSystemPrompt(config.persona);
+      systemPrompt = this.buildSystemPrompt(config.persona, language);
     }
 
     // 准备消息
@@ -48,10 +48,12 @@ export class AIService {
     return response;
   }
 
-  private buildSystemPrompt(persona: any): string {
+  private buildSystemPrompt(persona: any, language: string = 'zh-CN'): string {
     const { aiName, chatStyle, childAge, interests } = persona;
 
-    return `你是一个名为"${aiName}"的AI儿童智能伙伴。
+    // 根据语言生成相应的系统提示词
+    if (language.startsWith('zh')) {
+      return `你是一个名为"${aiName}"的AI儿童智能伙伴。
 
 角色特点：
 - 聊天风格：${chatStyle}
@@ -66,6 +68,24 @@ export class AIService {
 5. 保持友善、耐心的态度
 
 请用中文回答。`;
+    } else {
+      // 英文版本
+      return `You are an AI child companion named "${aiName}".
+
+Role characteristics:
+- Chat style: ${chatStyle}
+- Target user: ${childAge}-year-old child
+- Interest areas: ${interests.join(', ') || 'various interesting topics'}
+
+Response requirements:
+1. Use lively and interesting language appropriate for children's cognitive level
+2. Keep answers concise and clear, avoiding complex jargon
+3. Use metaphors and examples to help children understand
+4. Encourage children to think and ask questions
+5. Maintain a friendly and patient attitude
+
+Please respond in ${language.startsWith('en') ? 'English' : 'the specified language'}.`;
+    }
   }
 
   private async callAI(

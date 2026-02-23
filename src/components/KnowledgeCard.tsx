@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppConfig } from '../store/useAppConfig';
 
 export type KnowledgeCategory = 'animal' | 'plant' | 'space' | 'human' | 'physics' | 'chemistry';
 
@@ -20,6 +21,7 @@ interface KnowledgeCardProps {
 }
 
 export const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ knowledge, onPress }) => {
+  const { language = 'zh-CN' } = useAppConfig.getState();
   const getCategoryIcon = () => {
     switch (knowledge.category) {
       case 'animal':
@@ -106,7 +108,7 @@ export const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ knowledge, onPress
           <View style={styles.footer}>
             <Text style={styles.categoryText}>{getCategoryText()}</Text>
             <Text style={styles.date}>
-              {knowledge.createdAt.toLocaleDateString('zh-CN')}
+              {knowledge.createdAt.toLocaleDateString(language)}
             </Text>
           </View>
         </View>

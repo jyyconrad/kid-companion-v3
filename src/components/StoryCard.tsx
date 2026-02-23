@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { useAppConfig } from '../store/useAppConfig';
 
 export type StoryCategory = 'fairy' | 'adventure' | 'science' | 'animal';
 
@@ -19,6 +20,7 @@ interface StoryCardProps {
 }
 
 export const StoryCard: React.FC<StoryCardProps> = ({ story, onPress }) => {
+  const { language = 'zh-CN' } = useAppConfig.getState();
   const getCategoryIcon = () => {
     switch (story.category) {
       case 'fairy':
@@ -70,7 +72,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onPress }) => {
         <View style={styles.footer}>
           <Text style={styles.duration}>{story.duration}</Text>
           <Text style={styles.date}>
-            {story.createdAt.toLocaleDateString('zh-CN')}
+            {story.createdAt.toLocaleDateString(language)}
           </Text>
         </View>
       </View>
