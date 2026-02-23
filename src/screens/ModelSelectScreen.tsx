@@ -76,7 +76,13 @@ export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedChatModel || !selectedStoryModel || !selectedScienceModel) {
+      Alert.alert('提示', '请为每个场景选择模型');
+      return;
+    }
+
+    // 同步更新 store
     config.updateConfig({
       models: {
         chat: selectedChatModel,
@@ -84,8 +90,25 @@ export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
         science: selectedScienceModel,
       },
     });
-    config.saveConfig();
-    Alert.alert('保存成功', '模型配置已保存');
+    
+    // 异步保存并等待完成
+    await config.saveConfig();
+    
+    Alert.alert(
+      '保存成功',
+      '模型配置已保存，接下来让我们为孩子创建一个个性化的 AI 伙伴吧！',
+      [
+        {
+          text: '下一步',
+          onPress: () => {
+            // 确保 store 已更新后再导航
+            setTimeout(() => {
+              navigation.navigate('WizardScreen' as never);
+            }, 200);
+          }
+        }
+      ]
+    );
   };
 
   const handleRetry = () => {

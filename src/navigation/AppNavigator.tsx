@@ -69,7 +69,7 @@ const ProfileStack = () => {
   );
 };
 
-// 初始设置 Stack - 先配置 API，再配置角色
+// 初始设置 Stack - 先配置 API，再选择模型，最后配置角色
 const SetupStack = () => {
   return (
     <Stack.Navigator
@@ -89,6 +89,11 @@ const SetupStack = () => {
         name="ApiConfigScreen"
         component={ApiConfigScreen}
         options={{ title: '配置 AI 服务' }}
+      />
+      <Stack.Screen
+        name="ModelSelectScreen"
+        component={ModelSelectScreen}
+        options={{ title: '选择模型' }}
       />
       <Stack.Screen
         name="WizardScreen"

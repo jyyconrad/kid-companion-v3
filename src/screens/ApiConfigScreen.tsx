@@ -46,23 +46,29 @@ export const ApiConfigScreen: React.FC<ApiConfigScreenProps> = (props) => {
       return;
     }
 
-    // 保存配置
+    // 同步更新
     config.updateConfig({ apiUrl, apiKey });
-    config.saveConfig();
     
-    Alert.alert(
-      '保存成功',
-      'API 配置已保存，接下来让我们为孩子创建一个个性化的 AI 伙伴吧！',
-      [
-        {
-          text: '下一步',
-          onPress: () => {
-            // 导航到角色配置向导
-            navigation.navigate('WizardScreen' as never);
+    // 异步保存并等待完成
+    config.saveConfig().then(() => {
+      Alert.alert(
+        '保存成功',
+        'API 配置已保存，接下来请选择模型配置',
+        [
+          {
+            text: '下一步',
+            onPress: () => {
+              // 确保 store 已更新
+              setTimeout(() => {
+                navigation.navigate('ModelSelectScreen' as never);
+              }, 200);
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }).catch((error) => {
+      Alert.alert('保存失败', error.message);
+    });
   };
 
   return (
