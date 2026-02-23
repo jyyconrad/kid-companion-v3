@@ -1,5 +1,6 @@
 import { useAppConfig } from '../store/useAppConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { aiParseAndUpdate } from '../utils/aiFileTools';
 
 export interface Message {
   id: string;
@@ -50,6 +51,14 @@ export class AIService {
     if (typeof text === 'string') {
       await this.saveMessageToHistory({ role: 'user', content: text });
       await this.saveMessageToHistory({ role: 'assistant', content: response });
+      
+      // 检查用户输入是否需要更新配置（AI 工具：自动解析并更新）
+      if (!options?.context?.skipConfigUpdate) {
+        const updateResult = await aiParseAndUpdate(text);
+        if (updateResult.success && updateResult.updated) {
+          console.log(`配置已自动更新：${updateResult.updated}`);
+        }
+      }
     }
 
     return response;
@@ -124,11 +133,38 @@ export class AIService {
       const systemMd = await AsyncStorage.getItem('@kid_companion_system');
       const userMd = await AsyncStorage.getItem('@kid_companion_user');
       const identityMd = await AsyncStorage.getItem('@kid_companion_identity');
+      
+      // 读取结构化配置数据（如果有）
+      const configDataJson = await AsyncStorage.getItem('@kid_companion_config_data');
+      const configData = configDataJson ? JSON.parse(configDataJson) : null;
 
       if (systemMd && userMd && identityMd) {
         // 添加动态上下文
         const dynamicContext = await this.buildDynamicContext();
-        return `${systemMd}\n\n${dynamicContext}\n${userMd}\n\n${identityMd}\n\n请始终使用 Markdown 格式回复。`;
+        
+        // 添加结构化数据摘要（方便 AI 快速访问）
+        let configSummary = '';
+        if (configData) {
+          configSummary = `## 配置摘要（快速访问）
+- **孩子名字**: ${configData.childName}
+- **年龄**: ${configData.childAge}岁
+- **AI 名字**: ${configData.aiName}
+- **风格**: ${configData.aiStyle}
+
+`;
+        }
+        
+        return `${systemMd}\n\n${configSummary}${dynamicContext}${userMd}\n\n${identityMd}
+
+## AI 工具：配置管理
+你可以调用以下工具来管理配置：
+- **aiGetConfig()**: 获取配置信息（孩子名字、年龄、兴趣等）
+- **aiUpdateConfig()**: 更新配置（如孩子说"我改名叫小明了"）
+- **aiCheckConfig()**: 检查配置状态
+
+当用户提到修改名字、年龄、兴趣时，请调用 aiUpdateConfig 更新配置。
+
+请始终使用 Markdown 格式回复。`;
       }
     } catch (error) {
       console.error('加载配置文件失败:', error);

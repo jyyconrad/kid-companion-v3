@@ -58,13 +58,14 @@ export const ChatScreen: React.FC = () => {
       const lastVisit = await AsyncStorage.getItem('@last_visit');
       const isFirstVisit = !lastVisit;
       
-      // 获取孩子名字
-      const userMd = await AsyncStorage.getItem('@kid_companion_user');
-      const childNameMatch = userMd?.match(/名字 [::]\s*(.+)/);
-      const childName = childNameMatch ? childNameMatch[1].trim() : '小朋友';
+      // 获取孩子名字（从结构化数据读取，不解析 Markdown）
+      const configDataJson = await AsyncStorage.getItem('@kid_companion_config_data');
+      const configData = configDataJson ? JSON.parse(configDataJson) : null;
+      const childName = configData?.childName || '小朋友';
+      const aiName = configData?.aiName || '小伴童';
       
       // 构建欢迎提示词
-      const welcomePrompt = `你是${config.persona.aiName || '小伴童'}，正在和${childName}打招呼。
+      const welcomePrompt = `你是${aiName}，正在和${childName}打招呼。
 ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再次见面，要说又见面啦'}。
 请说一句友好的欢迎话（简短、有趣、使用表情符号），并询问今天想做什么（聊天、听故事、学科普）。
 要求：不超过 50 字，亲切友好。`;

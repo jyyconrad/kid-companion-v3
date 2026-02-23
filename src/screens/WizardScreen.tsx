@@ -191,7 +191,7 @@ const WizardScreen: React.FC = () => {
     }
   };
 
-  // 生成三个配置文件
+  // 生成三个配置文件 + 结构化数据
   const generateConfigFiles = async (info: CollectedInfo) => {
     try {
       // system.md
@@ -244,12 +244,25 @@ ${info.interests?.join('、') || '各种有趣的事物'}
 陪伴${info.childName}快乐成长，让每一天都充满好奇和惊喜！
 `;
 
-      // 保存到 AsyncStorage
+      // 保存到 AsyncStorage（Markdown 文件内容）
       await AsyncStorage.setItem('@kid_companion_system', systemMd);
       await AsyncStorage.setItem('@kid_companion_user', userMd);
       await AsyncStorage.setItem('@kid_companion_identity', identityMd);
       
-      console.log('三文件配置已生成');
+      // 保存结构化数据（方便代码读取）
+      const configData = {
+        childName: info.childName,
+        childAge: info.childAge || 6,
+        personality: info.personality || '活泼可爱',
+        interests: info.interests || [],
+        aiName: '小伴童',
+        aiStyle: '温柔姐姐',
+        version: 'v3.6',
+        createdAt: Date.now(),
+      };
+      await AsyncStorage.setItem('@kid_companion_config_data', JSON.stringify(configData));
+      
+      console.log('三文件配置 + 结构化数据已生成');
     } catch (error) {
       console.error('生成配置文件失败:', error);
     }
