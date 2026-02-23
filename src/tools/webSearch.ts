@@ -8,7 +8,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { KnowledgeItem } from '../types/knowledge';
+import type { KnowledgeItem } from './knowledge';
 
 export interface SearchResult {
   title: string;
