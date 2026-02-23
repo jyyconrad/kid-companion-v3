@@ -1,4 +1,5 @@
 import { useAppConfig } from '../store/useAppConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Message {
   id: string;
@@ -46,6 +47,31 @@ export class AIService {
     const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey);
 
     return response;
+  }
+
+  private async buildSystemPromptFromFiles(persona: any, language: string = 'zh-CN'): Promise<string> {
+    try {
+      // 加载三文件配置
+      const systemMd = await AsyncStorage.getItem('@kid_companion_system');
+      const userMd = await AsyncStorage.getItem('@kid_companion_user');
+      const identityMd = await AsyncStorage.getItem('@kid_companion_identity');
+
+      if (systemMd && userMd && identityMd) {
+        // 使用三文件配置
+        return `${systemMd}
+
+${userMd}
+
+${identityMd}
+
+请始终使用 Markdown 格式回复。`;
+      }
+    } catch (error) {
+      console.error('加载配置文件失败:', error);
+    }
+
+    // 降级到旧的系统提示词
+    return this.buildSystemPrompt(persona, language);
   }
 
   private buildSystemPrompt(persona: any, language: string = 'zh-CN'): string {

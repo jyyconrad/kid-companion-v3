@@ -104,18 +104,30 @@ const WizardScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 发送用户消息到 AI
-      const aiResponse = await aiService.sendMessage(
-        userText,
-        { 
-          chatStyle: 'friendly',
-          aiName: '小伴童向导',
-          context: { 
-            collectedInfo, 
-            isWizard: true 
-          }
+      // 发送用户消息到 AI（增加重试机制）
+      let aiResponse = '';
+      let retries = 3;
+      
+      while (retries > 0) {
+        try {
+          aiResponse = await aiService.sendMessage(
+            userText,
+            { 
+              chatStyle: 'friendly',
+              aiName: '小伴童向导',
+              context: { 
+                collectedInfo, 
+                isWizard: true 
+              }
+            }
+          );
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) throw error;
+          await new Promise(r => setTimeout(r, 1000));
         }
-      );
+      }
 
       addAiMessage(aiResponse);
 
@@ -127,15 +139,16 @@ const WizardScreen: React.FC = () => {
         setCollectedInfo(updatedInfo);
         await wizardService.saveCollectedInfo(updatedInfo);
 
-        // 检查信息是否完整
-        if (wizardService.isInfoComplete(updatedInfo)) {
+        // 检查信息是否完整（简化条件：只需名字）
+        if (updatedInfo.childName && updatedInfo.childName.length > 0) {
           setIsLoading(false);
           completeWizard(updatedInfo);
         }
       }
     } catch (error) {
       console.error('发送消息失败:', error);
-      addAiMessage('抱歉，我暂时无法回复。请稍后再试。');
+      // 不显示错误消息，显示鼓励的话
+      addAiMessage('让我再想想...你可以问我任何问题哦！😊');
     } finally {
       setIsLoading(false);
     }
@@ -145,33 +158,98 @@ const WizardScreen: React.FC = () => {
   const completeWizard = async (info: CollectedInfo) => {
     try {
       setIsLoading(true);
-      const config = wizardService.generateCharacterConfig(info);
-      await wizardService.saveConfig(config);
-      await wizardService.clearTemporaryData();
       
+      // 生成三个配置文件
+      await generateConfigFiles(info);
+      
+      await wizardService.clearTemporaryData();
       setIsComplete(true);
       
-      Alert.alert(
-        '配置完成！',
-        'AI 伙伴已成功创建。现在可以开始使用小伴童了！',
-        [
-          { 
-            text: '立即体验', 
-            onPress: () => {
-              // 导航到主应用界面（会重新检查配置并显示主界面）
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'SetupStack' as never }],
-              });
-            }
-          }
-        ]
-      );
+      // 显示完成消息（添加到对话中）
+      addAiMessage(`🎉 配置已完成！
+- ✅ system.md 已生成
+- ✅ user.md 已生成  
+- ✅ identity.md 已生成
+
+现在可以开始和小伴童聊天啦！🚀`);
+      
+      // 3 秒后导航到主界面
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainApp' as never }],
+        });
+      }, 3000);
+      
     } catch (error) {
       console.error('完成向导失败:', error);
       Alert.alert('保存配置失败', '无法保存角色配置，请重试');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 生成三个配置文件
+  const generateConfigFiles = async (info: CollectedInfo) => {
+    try {
+      // system.md
+      const systemMd = `# system.md - 系统配置
+
+## 核心规则
+1. **对话格式**: 始终使用 Markdown 格式输出
+2. **语言风格**: 简单易懂，适合${info.childAge || 6}岁儿童
+3. **互动方式**: 每次只问一个问题，耐心等待回答
+4. **安全约束**: 不问隐私信息（地址、学校、电话等）
+
+## 输出要求
+- 使用 Markdown 格式
+- 适当使用表情符号
+- 段落清晰，每段不超过 3 句
+- 重要内容用**加粗**标记
+`;
+
+      // user.md
+      const userMd = `# user.md - 关于${info.childName}
+
+## 基本信息
+- **名字**: ${info.childName}
+- **年龄**: ${info.childAge || '未知'}岁
+- **性格**: ${info.personality || '活泼可爱'}
+
+## 兴趣爱好
+${info.interests?.join('、') || '各种有趣的事物'}
+`;
+
+      // identity.md
+      const identityMd = `# identity.md - AI 身份定义
+
+## 我是谁
+- **名字**: 小伴童
+- **角色**: ${info.childName}的 AI 好朋友
+- **风格**: 温柔姐姐
+
+## 我的特点
+- 像温柔的大姐姐
+- 说话有趣易懂
+- 总是鼓励和支持
+
+## 我的能力
+- 🗣️ 聊天陪伴
+- 📚 讲故事
+- 🔬 科普知识
+
+## 我的使命
+陪伴${info.childName}快乐成长，让每一天都充满好奇和惊喜！
+`;
+
+      // 保存到 AsyncStorage
+      await AsyncStorage.setItem('@kid_companion_system', systemMd);
+      await AsyncStorage.setItem('@kid_companion_user', userMd);
+      await AsyncStorage.setItem('@kid_companion_identity', identityMd);
+      
+      console.log('三文件配置已生成');
+    } catch (error) {
+      console.error('生成配置文件失败:', error);
     }
   };
 

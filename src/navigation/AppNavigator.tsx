@@ -113,8 +113,8 @@ export const AppNavigator: React.FC = () => {
       try {
         await config.loadConfig();
         
-        const hasApi = config.apiKey.length > 0 && config.apiUrl.length > 0;
-        const hasPersona = config.persona.isInitialized;
+        const hasApi = config.apiKey && config.apiKey.length > 0 && config.apiUrl && config.apiUrl.length > 0;
+        const hasPersona = config.persona && config.persona.isInitialized;
         
         if (!hasApi) {
           // 需要配置 API
