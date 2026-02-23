@@ -24,10 +24,7 @@ export default () => ({
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff"
     },
-    edgeToEdgeEnabled: true,
-    predictiveBackGestureEnabled: false,
-    package: "com.anonymous.kidcompanionv3",
-    versionCode: 1
+    package: "com.anonymous.kidcompanionv3"
   },
   web: {
     favicon: "./assets/favicon.png",
