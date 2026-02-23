@@ -6,7 +6,9 @@ import {
   SafeAreaView,
   Alert,
   Text,
+  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
@@ -15,6 +17,8 @@ import { LoadingIndicator } from '../components/LoadingIndicator';
 import { aiService, Message as AIMessage } from '../services/aiService';
 import { useAppConfig } from '../store/useAppConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Skill, getSkillById, detectSkill, activateSkill, deactivateSkill } from '../skills';
+import { detectIntent } from '../utils/intentDetection';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -24,6 +28,7 @@ export const ChatScreen: React.FC = () => {
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [hasWelcomed, setHasWelcomed] = useState(false);
+  const [activeSkill, setActiveSkill] = useState<Skill | null>(null);
   const flatListRef = useRef<FlatList<AIMessage>>(null);
   const config = useAppConfig();
   const currentAIResponse = useRef<string>('');
@@ -124,6 +129,32 @@ ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再
       return;
     }
 
+    // 检测意图并切换 Skill
+    const intent = detectIntent(text);
+    if (intent.type !== (activeSkill?.id || 'chat')) {
+      // 退出当前 Skill
+      if (activeSkill) {
+        deactivateSkill(activeSkill);
+      }
+      // 激活新 Skill
+      const newSkill = getSkillById(intent.type);
+      if (newSkill && newSkill.id !== 'chat') {
+        setActiveSkill(newSkill);
+        activateSkill(newSkill);
+        
+        // 显示 Skill 切换提示
+        const switchMessage: AIMessage = {
+          id: generateMessageId(),
+          role: 'assistant',
+          content: `🎯 已切换到 **${newSkill.name}** 模式！${newSkill.id === 'story' ? ' 想听什么故事呢？' : newSkill.id === 'science' ? ' 有什么问题想问吗？' : ''}`,
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, switchMessage]);
+      } else {
+        setActiveSkill(null);
+      }
+    }
+
     const userMessage: AIMessage = {
       id: generateMessageId(),
       role: 'user',
@@ -218,6 +249,24 @@ ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Skill 状态栏 */}
+      {activeSkill && (
+        <View style={styles.skillBar}>
+          <View style={styles.skillBarContent}>
+            <Ionicons name={activeSkill.icon as any} size={18} color="#4A90E2" />
+            <Text style={styles.skillBarText}>{activeSkill.name}模式</Text>
+          </View>
+          <TouchableOpacity onPress={() => {
+            if (activeSkill) {
+              deactivateSkill(activeSkill);
+              setActiveSkill(null);
+            }
+          }}>
+            <Ionicons name="close" size={18} color="#999" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -246,6 +295,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  skillBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#F0F7FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  skillBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  skillBarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A90E2',
   },
   listContent: {
     paddingBottom: 16,
