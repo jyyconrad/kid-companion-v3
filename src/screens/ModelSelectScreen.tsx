@@ -83,6 +83,61 @@ export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
     }
   };
 
+  const testApiConnection = async (): Promise<boolean> => {
+    const { apiUrl, apiKey, models } = config;
+    
+    if (!apiUrl || !apiKey) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: selectedChatModel || models.chat,
+          messages: [
+            { role: 'user', content: '你好，你能做什么？请用简短的一句话回答。' }
+          ],
+          max_tokens: 100,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API 调用失败：${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content;
+      
+      if (reply) {
+        Alert.alert(
+          '✅ API 测试成功！',
+          `AI 回复：${reply}\n\n接下来让我们为孩子创建一个个性化的 AI 伙伴吧！`,
+          [
+            {
+              text: '下一步',
+              onPress: () => {
+                setTimeout(() => {
+                  navigation.navigate('WizardScreen' as never);
+                }, 200);
+              }
+            }
+          ]
+        );
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('API test error:', error);
+      Alert.alert('❌ API 测试失败', '请检查 API 配置和网络连接');
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedChatModel || !selectedStoryModel || !selectedScienceModel) {
       Alert.alert('提示', '请为每个场景选择模型');
@@ -101,17 +156,24 @@ export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
     // 异步保存并等待完成
     await config.saveConfig();
     
+    // 保存成功后测试 API
     Alert.alert(
       '保存成功',
-      '模型配置已保存，接下来让我们为孩子创建一个个性化的 AI 伙伴吧！',
+      '模型配置已保存，是否测试 API 连接？',
       [
         {
-          text: '下一步',
+          text: '跳过',
+          style: 'cancel',
           onPress: () => {
-            // 确保 store 已更新后再导航
             setTimeout(() => {
               navigation.navigate('WizardScreen' as never);
             }, 200);
+          }
+        },
+        {
+          text: '测试',
+          onPress: () => {
+            testApiConnection();
           }
         }
       ]
