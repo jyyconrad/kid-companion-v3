@@ -2,6 +2,7 @@
  * Web Search Tool
  * 
  * 提供网络搜索能力，让 AI 可以获取实时信息
+ * 使用 DuckDuckGo Instant Answer API（免费，无需 API Key）
  */
 
 import { tool } from 'ai';
@@ -13,45 +14,70 @@ export interface SearchResult {
   snippet: string;
 }
 
+interface DuckDuckGoResponse {
+  Heading?: string;
+  Abstract?: string;
+  AbstractURL?: string;
+  RelatedTopics?: Array<{
+    Text?: string;
+    FirstURL?: string;
+    Icon?: { URL?: string };
+  }>;
+}
+
 /**
  * Web Search 工具定义
+ * 使用 DuckDuckGo Instant Answer API
  */
 export const webSearchTool = tool({
-  description: '搜索网络信息，获取实时知识和新闻',
+  description: '搜索网络信息，获取实时知识和新闻（使用 DuckDuckGo 免费 API）',
   parameters: z.object({
     query: z.string().describe('搜索关键词'),
-    numResults: z.number().optional().describe('返回结果数量 (默认 5)'),
   }),
-  execute: async ({ query, numResults = 5 }) => {
+  execute: async ({ query }: { query: string }) => {
     try {
-      // 使用硅基流动的搜索 API（或其他搜索服务）
-      const response = await fetch(
-        `https://api.siliconflow.cn/v1/search?q=${encodeURIComponent(query)}&limit=${numResults}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.SILICONFLOW_API_KEY}`,
-          },
-        }
-      );
+      // 使用 DuckDuckGo Instant Answer API（免费，无需 API Key）
+      const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
 
       if (!response.ok) {
-        throw new Error('搜索失败');
+        throw new Error(`DuckDuckGo API 返回 ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: DuckDuckGoResponse = await response.json();
       
-      // 格式化搜索结果
-      const results: SearchResult[] = data.results?.map((item: any) => ({
-        title: item.title,
-        url: item.url,
-        snippet: item.snippet || item.content,
-      })) || [];
+      const results: SearchResult[] = [];
+      
+      // 添加主答案
+      if (data.Heading && (data.Abstract || data.AbstractURL)) {
+        results.push({
+          title: data.Heading,
+          url: data.AbstractURL || '',
+          snippet: data.Abstract || '',
+        });
+      }
+      
+      // 添加相关主题（最多 4 个）
+      if (data.RelatedTopics) {
+        const related = data.RelatedTopics.slice(0, 4).map(topic => ({
+          title: topic.Text?.split(' - ')[0] || '相关信息',
+          url: topic.FirstURL || '',
+          snippet: topic.Text || '',
+        }));
+        results.push(...related);
+      }
 
       return {
         success: true,
         query,
         results,
         count: results.length,
+        source: 'DuckDuckGo',
       };
     } catch (error: any) {
       console.error('Web Search 失败:', error);
@@ -59,6 +85,7 @@ export const webSearchTool = tool({
         success: false,
         query,
         error: error.message,
+        source: 'DuckDuckGo',
       };
     }
   },
@@ -73,18 +100,18 @@ export const kidsSearchTool = tool({
     question: z.string().describe('孩子的问题'),
     category: z.enum(['animal', 'plant', 'space', 'science', 'history']).optional(),
   }),
-  execute: async ({ question, category }) => {
+  execute: async ({ question, category }: { question: string; category?: 'animal' | 'plant' | 'space' | 'science' | 'history' }) => {
     // 构建适合儿童的搜索词
     const searchQuery = `${category || '知识'} ${question} 儿童版`;
     
-    // 调用普通搜索
-    const result = await webSearchTool.execute({ query: searchQuery, numResults: 3 });
+    // 调用普通搜索（使用 any 类型绕过）
+    const result: any = await (webSearchTool as any).execute({ query: searchQuery });
     
     // 过滤和简化内容
-    if (result.success) {
+    if (result && result.success) {
       return {
         ...result,
-        results: result.results.map(r => ({
+        results: (result.results || []).map((r: any) => ({
           ...r,
           snippet: simplifyContentForKids(r.snippet),
         })),
@@ -93,7 +120,7 @@ export const kidsSearchTool = tool({
     
     return result;
   },
-});
+}) as any;
 
 /**
  * 简化内容适合儿童阅读

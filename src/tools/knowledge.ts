@@ -27,8 +27,10 @@ export const knowledgeTool = tool({
     category: z.string().optional().describe('知识分类'),
     limit: z.number().optional().describe('返回数量 (默认 5)'),
   }),
-  execute: async ({ query, category, limit = 5 }) => {
+  execute: async ({ query, category, limit }: { query: string; category?: string; limit?: number }) => {
     try {
+      const actualLimit = limit || 5;
+      
       // 从 AsyncStorage 读取知识库
       const knowledgeJson = await AsyncStorage.getItem('@knowledge_base');
       const knowledge: KnowledgeItem[] = knowledgeJson
@@ -45,7 +47,7 @@ export const knowledgeTool = tool({
         const matchCategory = category ? item.category === category : true;
         
         return matchQuery && matchCategory;
-      }).slice(0, limit);
+      }).slice(0, actualLimit);
 
       return {
         success: true,
@@ -62,7 +64,7 @@ export const knowledgeTool = tool({
       };
     }
   },
-});
+}) as any;
 
 /**
  * 添加知识到知识库
@@ -75,7 +77,7 @@ export const addKnowledgeTool = tool({
     category: z.string().describe('知识分类'),
     tags: z.array(z.string()).describe('标签列表'),
   }),
-  execute: async ({ title, content, category, tags }) => {
+  execute: async ({ title, content, category, tags }: { title: string; content: string; category: string; tags: string[] }) => {
     try {
       const knowledgeJson = await AsyncStorage.getItem('@knowledge_base');
       const knowledge: KnowledgeItem[] = knowledgeJson
@@ -107,7 +109,7 @@ export const addKnowledgeTool = tool({
       };
     }
   },
-});
+}) as any;
 
 /**
  * 获取知识分类列表
@@ -137,4 +139,4 @@ export const getCategoriesTool = tool({
       };
     }
   },
-});
+}) as any;

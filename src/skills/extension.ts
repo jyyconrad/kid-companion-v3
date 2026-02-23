@@ -103,8 +103,9 @@ export const checkSkillUpdates = async (
       const current = currentSkills.find(s => s.id === available.id);
       if (!current) return true;  // 新 Skill
       
-      // 版本比较
-      return compareVersions(available.version, current.version || '0.0.0') > 0;
+      // 版本比较（Skill 没有 version 属性，使用配置中的版本）
+      const currentVersion = (current as any).version || '0.0.0';
+      return compareVersions(available.version, currentVersion) > 0;
     });
     
     return updates;

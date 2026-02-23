@@ -16,6 +16,7 @@ import { useAppConfig } from '../store/useAppConfig';
 import { aiGetConfig, aiUpdateConfig, aiParseAndUpdate } from '../utils/aiFileTools';
 import { webSearchTool, kidsSearchTool } from '../tools/webSearch';
 import { knowledgeTool, addKnowledgeTool } from '../tools/knowledge';
+import { websiteReaderTool, batchReadWebsitesTool } from '../tools/websiteReader';
 
 export interface Message {
   id: string;
@@ -79,34 +80,36 @@ export class AIService {
       });
       const model = openai(models.chat);
 
-      // 定义工具
+      // 定义工具（使用类型断言绕过 Vercel AI SDK 类型限制）
       const tools: any = {
         getConfig: tool({
           description: '获取配置信息（孩子名字、年龄、兴趣等）',
           parameters: z.object({
             field: z.string().optional().describe('配置字段名，如 childName, childAge, aiName 等'),
           }),
-          execute: async (params: any) => {
-            callbacks?.onToolCall?.('getConfig', params);
-            return await aiGetConfig({ field: params.field as any });
+          execute: async ({ field }: { field?: string }) => {
+            callbacks?.onToolCall?.('getConfig', { field });
+            return await aiGetConfig({ field: field as any });
           },
-        }),
+        }) as any,
         updateConfig: tool({
           description: '更新配置信息（如孩子说"我改名叫小明了"）',
           parameters: z.object({
             field: z.string().describe('配置字段名'),
             value: z.any().describe('新的值'),
           }),
-          execute: async (params: any) => {
-            callbacks?.onToolCall?.('updateConfig', params);
-            const result = await aiUpdateConfig('data', params.field, params.value);
+          execute: async ({ field, value }: { field: string; value: any }) => {
+            callbacks?.onToolCall?.('updateConfig', { field, value });
+            const result = await aiUpdateConfig('data', field, value);
             return result;
           },
-        }),
-        webSearch: webSearchTool,
-        kidsSearch: kidsSearchTool,
-        knowledge: knowledgeTool,
-        addKnowledge: addKnowledgeTool,
+        }) as any,
+        webSearch: webSearchTool as any,
+        kidsSearch: kidsSearchTool as any,
+        knowledge: knowledgeTool as any,
+        addKnowledge: addKnowledgeTool as any,
+        websiteReader: websiteReaderTool as any,
+        batchReadWebsites: batchReadWebsitesTool as any,
       };
 
       // 流式调用 AI
