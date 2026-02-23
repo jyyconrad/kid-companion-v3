@@ -11,6 +11,7 @@ export interface Knowledge {
   category: KnowledgeCategory;
   icon?: string;
   description: string;
+  content?: string;  // 新增：详细内容
   difficulty: 'easy' | 'medium' | 'hard';
   createdAt: Date;
 }

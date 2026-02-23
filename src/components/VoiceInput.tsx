@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Voice from '@react-native-voice/voice';
-import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 
 interface VoiceInputProps {
   onSpeechRecognized: (text: string) => void;
@@ -55,13 +55,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       setError(null);
       setRecognizedText('');
       
-      // 检查权限
-      const permissions = await Voice.requestPermissions();
-      if (!permissions) {
-        throw new Error('没有麦克风权限');
-      }
-
-      // 开始录音
+      // 开始录音（@react-native-voice/voice 会自动请求权限）
       await Voice.start('zh-CN');
       setIsRecording(true);
     } catch (err: any) {
@@ -94,7 +88,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     
     try {
       setIsPlaying(true);
-      await Voice.speak(text, {
+      await Speech.speak(text, {
         language: 'zh-CN',
         rate: 0.9,
         pitch: 1.0,

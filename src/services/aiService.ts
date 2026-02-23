@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppConfig } from '../store/useAppConfig';
-import { aiGetConfig, aiUpdateConfig } from '../utils/aiFileTools';
+import { aiGetConfig, aiUpdateConfig, aiParseAndUpdate } from '../utils/aiFileTools';
 
 export interface Message {
   id: string;
@@ -59,15 +59,15 @@ export class AIService {
         systemPrompt = options?.context?.systemPrompt ||
           '你是一个友好的 AI 伙伴配置向导，负责收集关于孩子的信息。';
       } else {
-        systemPrompt = await this.buildSystemPromptFromFiles(config.persona, language);
+        systemPrompt = await this.buildSystemPromptFromFiles(undefined, language);
       }
 
       // 准备消息：带入历史消息
       const historyMessages = await this.getRecentHistory(10);
       const messages = [
-        { role: 'system', content: systemPrompt },
-        ...historyMessages.map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: text }
+        { role: 'system' as const, content: systemPrompt },
+        ...historyMessages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user' as const, content: text }
       ];
 
       // 创建模型实例（支持硅基流动）
@@ -84,9 +84,9 @@ export class AIService {
           parameters: z.object({
             field: z.string().optional().describe('配置字段名，如 childName, childAge, aiName 等'),
           }),
-          execute: async ({ field }: { field?: string }) => {
-            callbacks?.onToolCall?.('getConfig', { field });
-            return await aiGetConfig({ field: field as any });
+          execute: async (params: any) => {
+            callbacks?.onToolCall?.('getConfig', params);
+            return await aiGetConfig({ field: params.field as any });
           },
         }),
         updateConfig: tool({
@@ -95,9 +95,9 @@ export class AIService {
             field: z.string().describe('配置字段名'),
             value: z.any().describe('新的值'),
           }),
-          execute: async ({ field, value }: { field: string; value: any }) => {
-            callbacks?.onToolCall?.('updateConfig', { field, value });
-            const result = await aiUpdateConfig('data', field, value);
+          execute: async (params: any) => {
+            callbacks?.onToolCall?.('updateConfig', params);
+            const result = await aiUpdateConfig('data', params.field, params.value);
             return result;
           },
         }),
@@ -109,7 +109,6 @@ export class AIService {
         messages,
         tools,
         temperature: 0.7,
-        maxTokens: 1000,
       });
 
       // 处理流式响应
@@ -132,7 +131,6 @@ export class AIService {
 
       // 检查用户输入是否需要更新配置（兼容旧逻辑）
       if (!options?.skipConfigUpdate) {
-        const { aiParseAndUpdate } = await import('../utils/aiFileTools');
         const updateResult = await aiParseAndUpdate(text);
         if (updateResult.success && updateResult.updated) {
           console.log(`配置已自动更新：${updateResult.updated}`);
@@ -153,7 +151,7 @@ export class AIService {
    * 构建系统提示词（从三文件配置）
    */
   private async buildSystemPromptFromFiles(
-    persona: { system?: string; user?: string; identity?: string },
+    _persona: any,
     language: string
   ): Promise<string> {
     try {

@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { Message } from '../components/MessageBubble';
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+}
 
 interface ChatState {
   messages: Message[];

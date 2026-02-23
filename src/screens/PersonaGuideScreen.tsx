@@ -106,14 +106,7 @@ AI名称：${aiName || '小伴童'}
 
 只返回JSON，不要其他内容。`;
 
-      const messages: Message[] = [{
-        id: '1',
-        role: 'user',
-        content: prompt,
-        timestamp: Date.now(),
-      }];
-
-      const response = await aiService.sendMessage(messages);
+      const response = await aiService.sendMessage(prompt);
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       
       if (jsonMatch) {

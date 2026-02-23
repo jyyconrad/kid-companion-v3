@@ -12,6 +12,7 @@ export interface Story {
   summary: string;
   duration: string;
   createdAt: Date;
+  content?: string;  // 新增：故事内容
 }
 
 interface StoryCardProps {

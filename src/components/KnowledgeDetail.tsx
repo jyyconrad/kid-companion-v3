@@ -11,9 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Knowledge, KnowledgeCategory } from '../components/KnowledgeCard';
 
-interface KnowledgeDetailProps {
+export interface KnowledgeDetailProps {
   knowledge: Knowledge;
   onBack: () => void;
+  onPlay?: () => Promise<void>;
 }
 
 export const KnowledgeDetail: React.FC<KnowledgeDetailProps> = ({ knowledge, onBack }) => {

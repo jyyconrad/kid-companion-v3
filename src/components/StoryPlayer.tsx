@@ -9,14 +9,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
+import { Story } from './StoryCard';
 
-interface StoryPlayerProps {
+export interface StoryPlayerProps {
   title: string;
   content: string;
   language?: string;
+  isPlaying?: boolean;
+  onPlay?: () => Promise<void>;
+  onPause?: () => void;
+  onBack?: () => void;
+  story?: Story;  // 新增：支持传入 story 对象
 }
 
-export const StoryPlayer: React.FC<StoryPlayerProps> = ({ title, content, language = 'zh-CN' }) => {
+export const StoryPlayer: React.FC<StoryPlayerProps> = ({ story, title, content, language = 'zh-CN' }) => {
+  // 如果传入 story 对象，使用 story 的数据
+  const displayTitle = story?.title || title;
+  const displayContent = story?.content || content;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speaking, setSpeaking] = useState(false);

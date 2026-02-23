@@ -60,13 +60,17 @@ export const StoryScreen: React.FC = () => {
 内容...`;
 
       // 调用 AI 服务（流式输出）
-      const response = await aiService.sendMessage(prompt, {
-        context: { isStory: true }
-      }, (chunk: string) => {
-        // 流式更新内容
-        currentStoryContent.current += chunk;
-        setStreamingContent(currentStoryContent.current);
-      });
+      const response = await aiService.sendMessage(
+        prompt,
+        { context: { isStory: true } },
+        {
+          onChunk: (chunk: string) => {
+            // 流式更新内容
+            currentStoryContent.current += chunk;
+            setStreamingContent(currentStoryContent.current);
+          },
+        }
+      );
 
       // 解析故事内容
       const parsedStory = parseGeneratedStory(response || currentStoryContent.current);
@@ -159,6 +163,8 @@ export const StoryScreen: React.FC = () => {
     return (
       <StoryPlayer
         story={selectedStory}
+        title={selectedStory.title}
+        content={selectedStory.content || selectedStory.summary}
         isPlaying={isPlaying}
         onPlay={() => handlePlayStory(selectedStory)}
         onPause={handleStopPlaying}

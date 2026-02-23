@@ -268,7 +268,11 @@ ${info.interests?.join('、') || '各种有趣的事物'}
 
   // 渲染消息项
   const renderMessageItem = ({ item }: { item: Message }) => (
-    <MessageBubble message={item} />
+    <MessageBubble
+      role={item.type === 'user' ? 'user' : 'assistant'}
+      content={item.content}
+      timestamp={item.timestamp.getTime()}
+    />
   );
 
   return (

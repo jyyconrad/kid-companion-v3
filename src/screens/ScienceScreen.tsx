@@ -69,12 +69,16 @@ export const ScienceScreen: React.FC = () => {
 内容...`;
 
       // 调用 AI 服务（流式输出）
-      const response = await aiService.sendMessage(prompt, {
-        context: { isScience: true }
-      }, (chunk: string) => {
-        currentKnowledgeContent.current += chunk;
-        setStreamingContent(currentKnowledgeContent.current);
-      });
+      const response = await aiService.sendMessage(
+        prompt,
+        { context: { isScience: true } },
+        {
+          onChunk: (chunk: string) => {
+            currentKnowledgeContent.current += chunk;
+            setStreamingContent(currentKnowledgeContent.current);
+          },
+        }
+      );
 
       const content = response || currentKnowledgeContent.current;
       const parsedKnowledge = parseGeneratedKnowledge(content);
