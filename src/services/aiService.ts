@@ -14,6 +14,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppConfig } from '../store/useAppConfig';
 import { aiGetConfig, aiUpdateConfig, aiParseAndUpdate } from '../utils/aiFileTools';
+import { webSearchTool, kidsSearchTool } from '../tools/webSearch';
+import { knowledgeTool, addKnowledgeTool } from '../tools/knowledge';
 
 export interface Message {
   id: string;
@@ -78,7 +80,7 @@ export class AIService {
       const model = openai(models.chat);
 
       // 定义工具
-      const tools = {
+      const tools: any = {
         getConfig: tool({
           description: '获取配置信息（孩子名字、年龄、兴趣等）',
           parameters: z.object({
@@ -101,6 +103,10 @@ export class AIService {
             return result;
           },
         }),
+        webSearch: webSearchTool,
+        kidsSearch: kidsSearchTool,
+        knowledge: knowledgeTool,
+        addKnowledge: addKnowledgeTool,
       };
 
       // 流式调用 AI
