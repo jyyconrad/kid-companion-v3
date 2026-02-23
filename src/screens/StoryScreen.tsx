@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import { Ionicons } from '@expo/vector-icons';
 import { StoryCard, Story, StoryCategory } from '../components/StoryCard';
 import { StoryPlayer } from '../components/StoryPlayer';
+import { aiService } from '../services/aiService';
+import { useAppConfig } from '../store/useAppConfig';
 
 const CATEGORIES: { value: StoryCategory; label: string }[] = [
   { value: 'fairy', label: '童话故事' },
@@ -24,144 +28,179 @@ export const StoryScreen: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<StoryCategory>('fairy');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const config = useAppConfig();
+  const currentStoryContent = useRef<string>('');
 
   const generateMessageId = () => {
     return Date.now().toString() + Math.random().toString(36).substr(2, 9);
   };
 
   const handleGenerateStory = async () => {
+    if (!config.apiKey) {
+      Alert.alert('提示', '请先在"我的"页面配置 API');
+      return;
+    }
+
     setIsGenerating(true);
+    setStreamingContent('');
+    currentStoryContent.current = '';
+    
     try {
       const categoryText = CATEGORIES.find(cat => cat.value === selectedCategory)?.label || '故事';
-      
-      // 模拟生成故事（实际应该调用API）
-      const mockStories: Record<string, { title: string; content: string; duration: string }> = {
-        fairy: {
-          title: '勇敢的小兔子',
-          content: '从前有一只勇敢的小兔子，它住在一个美丽的森林里。有一天，小兔子听说森林深处有一只受伤的小鸟，于是它决定去帮助它。小兔子穿过茂密的树林，跨过湍急的小溪，终于找到了那只受伤的小鸟。它小心翼翼地把小鸟抱回家，细心地照顾它。几天后，小鸟痊愈了，它感谢小兔子的帮助，并成为了好朋友。',
-          duration: '3分钟'
-        },
-        adventure: {
-          title: '太空探险',
-          content: '小明梦想成为一名宇航员。有一天，他乘坐飞船开始了太空探险之旅。他看到了美丽的地球，遇到了友好的外星人，还发现了一个新的星球。在太空中，小明学会了勇敢和独立，这次探险让他明白了探索未知的重要性。',
-          duration: '5分钟'
-        },
-        science: {
-          title: '植物的秘密',
-          content: '你知道吗？植物也有自己的语言。它们通过根部释放化学物质来交流。当一棵植物受到昆虫攻击时，它会向邻居植物发送警告信号，帮助它们做好防御准备。科学家们正在研究如何更好地理解植物的沟通方式。',
-          duration: '4分钟'
-        },
-        animal: {
-          title: '聪明的海豚',
-          content: '海豚是海洋中最聪明的动物之一。它们会用复杂的声纳系统来导航和寻找食物。海豚还会互相帮助，当有同伴受伤时，其他海豚会围成一个圈保护它。它们还喜欢和人类玩耍，经常在船边跳跃。',
-          duration: '4分钟'
-        }
-      };
+      const prompt = `请为小朋友创作一个${categoryText}，要求：
+1. 语言生动有趣，适合儿童阅读
+2. 有教育意义
+3. 长度 300-500 字
+4. 使用 Markdown 格式，包含标题和内容
 
-      const mockStory = mockStories[selectedCategory] || mockStories.fairy;
-      const parsedStory = {
-        title: mockStory.title,
-        summary: mockStory.content.substring(0, 100) + '...',
-        duration: mockStory.duration
-      };
+请按以下格式输出：
+# 标题
+内容...`;
+
+      // 调用 AI 服务（流式输出）
+      const response = await aiService.sendMessage(prompt, {
+        context: { isStory: true }
+      }, (chunk: string) => {
+        // 流式更新内容
+        currentStoryContent.current += chunk;
+        setStreamingContent(currentStoryContent.current);
+      });
+
+      // 解析故事内容
+      const parsedStory = parseGeneratedStory(response || currentStoryContent.current);
 
       const newStory: Story = {
         id: generateMessageId(),
         title: parsedStory.title,
         category: selectedCategory,
         summary: parsedStory.summary,
+        content: parsedStory.content,
         createdAt: new Date(),
         duration: parsedStory.duration,
       };
 
       setStories(prev => [newStory, ...prev]);
       setSelectedStory(newStory);
+
+      // 自动播放语音
+      await Speech.speak(parsedStory.content, {
+        language: 'zh-CN',
+        pitch: 1.0,
+        rate: 0.9,
+      });
+
     } catch (error) {
       console.error('故事生成失败:', error);
-      Alert.alert('生成失败', '故事生成失败，请检查网络连接或API配置');
+      Alert.alert('生成失败', '故事生成失败，请检查网络连接或 API 配置');
     } finally {
       setIsGenerating(false);
+      setStreamingContent('');
     }
   };
 
-  const parseGeneratedStory = (text: string): { title: string; summary: string; duration: string } => {
-    const titleMatch = text.match(/标题：\s*(.*?)(?=\n|内容：)/);
+  const parseGeneratedStory = (text: string): { title: string; content: string; summary: string; duration: string } => {
+    // 提取标题（Markdown 格式 # 标题）
+    const titleMatch = text.match(/^#\s*(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : '精彩故事';
 
-    const contentMatch = text.match(/内容：\s*([\s\S]*?)(?=\n时长：|$)/);
-    const content = contentMatch ? contentMatch[1].trim() : '这是一个精彩的故事...';
+    // 提取内容（标题后的所有文本）
+    const contentMatch = text.match(/^#\s*.+\n([\s\S]*)$/m);
+    const content = contentMatch ? contentMatch[1].trim() : text;
 
-    const durationMatch = text.match(/时长：\s*(.*)/);
-    const duration = durationMatch ? durationMatch[1].trim() : '5分钟';
+    // 估算时长（约 200 字/分钟）
+    const wordCount = content.length;
+    const durationMinutes = Math.ceil(wordCount / 200);
+    const duration = `${durationMinutes}分钟`;
 
     return {
       title,
+      content,
       summary: content.substring(0, 100) + '...',
       duration,
     };
   };
 
+  const handlePlayStory = async (story: Story) => {
+    setSelectedStory(story);
+    setIsPlaying(true);
+    
+    try {
+      await Speech.speak(story.content || story.summary, {
+        language: 'zh-CN',
+        pitch: 1.0,
+        rate: 0.9,
+        onDone: () => setIsPlaying(false),
+        onError: () => setIsPlaying(false),
+      });
+    } catch (error) {
+      console.error('语音播放失败:', error);
+      setIsPlaying(false);
+    }
+  };
+
+  const handleStopPlaying = () => {
+    Speech.stop();
+    setIsPlaying(false);
+  };
+
   const handleStorySelect = (story: Story) => {
     setSelectedStory(story);
+    handlePlayStory(story);
   };
 
   const handleBack = () => {
+    handleStopPlaying();
     setSelectedStory(null);
-  };
-
-  const renderStoryItem = ({ item }: { item: Story }) => {
-    return (
-      <StoryCard story={item} onPress={() => handleStorySelect(item)} />
-    );
   };
 
   if (selectedStory) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{selectedStory.title}</Text>
-          <View style={styles.placeholder} />
-        </View>
-        <StoryPlayer
-          title={selectedStory.title}
-          content="这是故事的完整内容。在实际应用中，我们会从API获取完整的故事内容。"
-        />
-      </SafeAreaView>
+      <StoryPlayer
+        story={selectedStory}
+        isPlaying={isPlaying}
+        onPlay={() => handlePlayStory(selectedStory)}
+        onPause={handleStopPlaying}
+        onBack={handleBack}
+      />
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>故事天地</Text>
+        <Text style={styles.headerTitle}>讲故事</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={() => setStories([])}>
           <Ionicons name="refresh" size={20} color="#4A90E2" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.categoriesContainer}>
-        {CATEGORIES.map(category => (
-          <TouchableOpacity
-            key={category.value}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category.value && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory(category.value)}
-          >
-            <Text
+      <View style={styles.categoryContainer}>
+        <FlatList
+          data={CATEGORIES}
+          renderItem={({ item }) => (
+            <TouchableOpacity
               style={[
-                styles.categoryButtonText,
-                selectedCategory === category.value && styles.categoryButtonTextActive,
+                styles.categoryButton,
+                selectedCategory === item.value && styles.categoryButtonActive,
               ]}
+              onPress={() => setSelectedCategory(item.value)}
             >
-              {category.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.categoryText,
+                  selectedCategory === item.value && styles.categoryTextActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          )}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryList}
+        />
       </View>
 
       <TouchableOpacity
@@ -169,31 +208,44 @@ export const StoryScreen: React.FC = () => {
         onPress={handleGenerateStory}
         disabled={isGenerating}
       >
-        <Ionicons
-          name="sparkles"
-          size={20}
-          color={isGenerating ? '#999' : 'white'}
-        />
-        <Text style={styles.generateButtonText}>
-          {isGenerating ? '生成中...' : '生成新故事'}
-        </Text>
+        {isGenerating ? (
+          <>
+            <ActivityIndicator color="white" />
+            <Text style={styles.generateButtonText}>正在创作故事...</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons name="sparkles" size={20} color="white" />
+            <Text style={styles.generateButtonText}>生成{CATEGORIES.find(cat => cat.value === selectedCategory)?.label || '故事'}</Text>
+          </>
+        )}
       </TouchableOpacity>
 
-      {stories.length > 0 ? (
-        <FlatList
-          data={stories}
-          renderItem={renderStoryItem}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.storiesList}
-        />
-      ) : (
-        <View style={styles.emptyState}>
-          <Ionicons name="book" size={64} color="#E0E0E0" />
-          <Text style={styles.emptyStateText}>还没有故事</Text>
-          <Text style={styles.emptyStateSubtext}>点击"生成新故事"开始创作</Text>
+      {streamingContent.length > 0 && (
+        <View style={styles.streamingContainer}>
+          <ActivityIndicator size="small" color="#4A90E2" />
+          <Text style={styles.streamingText}>正在创作中...</Text>
         </View>
       )}
+
+      <FlatList
+        data={stories}
+        renderItem={({ item }) => (
+          <StoryCard
+            story={item}
+            onPress={() => handleStorySelect(item)}
+          />
+        )}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.storyList}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="book" size={64} color="#E0E0E0" />
+            <Text style={styles.emptyText}>还没有故事</Text>
+            <Text style={styles.emptySubtext}>点击上方按钮生成精彩故事</Text>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -201,103 +253,99 @@ export const StoryScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-  },
-  backButton: {
-    padding: 8,
   },
   refreshButton: {
     padding: 8,
   },
-  placeholder: {
-    width: 40,
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
+  categoryContainer: {
     paddingVertical: 12,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    overflow: 'hidden',
+    borderBottomColor: '#F0F0F0',
+  },
+  categoryList: {
+    paddingHorizontal: 16,
   },
   categoryButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    marginRight: 8,
     borderRadius: 20,
     backgroundColor: '#F5F5F5',
-    marginRight: 8,
   },
   categoryButtonActive: {
     backgroundColor: '#4A90E2',
   },
-  categoryButtonText: {
+  categoryText: {
     fontSize: 14,
     color: '#666',
   },
-  categoryButtonTextActive: {
+  categoryTextActive: {
     color: 'white',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4A90E2',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    margin: 16,
+    paddingVertical: 14,
+    backgroundColor: '#4A90E2',
+    borderRadius: 12,
+    gap: 8,
   },
   generateButtonDisabled: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#90CAF9',
   },
   generateButtonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
+    fontWeight: '600',
   },
-  storiesList: {
-    paddingBottom: 16,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  streamingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F0F7FF',
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
   },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  emptyStateSubtext: {
+  streamingText: {
     fontSize: 14,
+    color: '#4A90E2',
+  },
+  storyList: {
+    padding: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyText: {
+    fontSize: 16,
     color: '#999',
-    textAlign: 'center',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#CCC',
+    marginTop: 8,
   },
 });
