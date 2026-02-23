@@ -115,8 +115,6 @@ const WizardScreen: React.FC = () => {
           aiResponse = await aiService.sendMessage(
             userText,
             { 
-              chatStyle: 'friendly',
-              aiName: '小伴童向导',
               context: { 
                 collectedInfo, 
                 isWizard: true 

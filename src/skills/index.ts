@@ -2,6 +2,8 @@
  * Skills 管理器
  */
 
+export type { Skill } from './types';
+export { SkillState } from './types';
 import { Skill } from './types';
 import { chatSkill } from './chatSkill';
 import { storySkill } from './storySkill';

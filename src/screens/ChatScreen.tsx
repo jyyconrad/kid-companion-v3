@@ -19,6 +19,7 @@ import { useAppConfig } from '../store/useAppConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Skill, getSkillById, detectSkill, activateSkill, deactivateSkill } from '../skills';
 import { detectIntent } from '../utils/intentDetection';
+import { StreamSpeechManager } from '../utils/StreamSpeechManager';
 
 export const ChatScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -31,11 +32,19 @@ export const ChatScreen: React.FC = () => {
   const [activeSkill, setActiveSkill] = useState<Skill | null>(null);
   const flatListRef = useRef<FlatList<AIMessage>>(null);
   const config = useAppConfig();
+  
+  // 流式输出和语音播放管理
   const currentAIResponse = useRef<string>('');
+  const speechManager = useRef<StreamSpeechManager | null>(null);
+  const currentMessageId = useRef<string>('');
 
   // 启动时加载配置
   useEffect(() => {
     loadConfig();
+    return () => {
+      // 清理语音播放
+      speechManager.current?.stop();
+    };
   }, []);
 
   // 首次进入时触发欢迎消息
@@ -54,44 +63,74 @@ export const ChatScreen: React.FC = () => {
   // 触发欢迎消息
   const triggerWelcomeMessage = async () => {
     try {
-      // 检查是否是首次访问
       const lastVisit = await AsyncStorage.getItem('@last_visit');
       const isFirstVisit = !lastVisit;
       
-      // 获取孩子名字（从结构化数据读取，不解析 Markdown）
       const configDataJson = await AsyncStorage.getItem('@kid_companion_config_data');
       const configData = configDataJson ? JSON.parse(configDataJson) : null;
       const childName = configData?.childName || '小朋友';
       const aiName = configData?.aiName || '小伴童';
       
-      // 构建欢迎提示词
       const welcomePrompt = `你是${aiName}，正在和${childName}打招呼。
 ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再次见面，要说又见面啦'}。
 请说一句友好的欢迎话（简短、有趣、使用表情符号），并询问今天想做什么（聊天、听故事、学科普）。
 要求：不超过 50 字，亲切友好。`;
 
-      const response = await aiService.sendMessage(welcomePrompt, { context: { isWelcome: true } });
+      // 初始化流式语音管理器
+      speechManager.current = new StreamSpeechManager({
+        language: 'zh-CN',
+        pitch: 1.0,
+        rate: 0.9,
+        onSentenceStart: (sentence) => {
+          console.log('开始播放:', sentence);
+        },
+        onSentenceEnd: (sentence) => {
+          console.log('播放完成:', sentence);
+        },
+      });
+
+      // 创建消息占位
+      const messageId = generateMessageId();
+      currentMessageId.current = messageId;
       
-      // 显示欢迎消息
       const welcomeMessage: AIMessage = {
-        id: generateMessageId(),
+        id: messageId,
         role: 'assistant',
-        content: response,
+        content: '',
         timestamp: Date.now(),
       };
       
       setMessages(prev => [...prev, welcomeMessage]);
+
+      // 流式调用 + 语音播放
+      await aiService.sendMessage(
+        welcomePrompt,
+        { context: { isWelcome: true } },
+        {
+          onChunk: (chunk) => {
+            currentAIResponse.current += chunk;
+            
+            // 更新消息内容
+            setMessages(prev => prev.map(msg =>
+              msg.id === messageId
+                ? { ...msg, content: currentAIResponse.current }
+                : msg
+            ));
+            
+            // 添加到语音队列
+            speechManager.current?.addChunk(chunk);
+          },
+          onComplete: () => {
+            // 标记流式完成，播放剩余内容
+            speechManager.current?.markComplete();
+          },
+          onError: (err) => {
+            console.error('欢迎消息失败:', err);
+            setError(err.message);
+          },
+        }
+      );
       
-      // 自动播放语音
-      if (autoPlayEnabled) {
-        await Speech.speak(response, {
-          language: 'zh-CN',
-          pitch: 1.0,
-          rate: 0.9,
-        });
-      }
-      
-      // 记录访问时间
       await AsyncStorage.setItem('@last_visit', Date.now().toString());
     } catch (error) {
       console.error('欢迎消息失败:', error);
@@ -108,184 +147,214 @@ ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再
   // 错误提示
   useEffect(() => {
     if (error) {
-      Alert.alert('聊天错误', error);
+      Alert.alert('错误', error);
       setError(null);
     }
   }, [error]);
 
-  const generateMessageId = () => {
-    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-  };
+  // 处理发送消息
+  const handleSend = async (text: string) => {
+    if (!text.trim() || isLoading) return;
 
-  const handleSendMessage = async (text: string) => {
-    if (!text.trim()) return;
+    // 停止当前语音播放
+    speechManager.current?.stop();
 
-    if (!isConfigLoaded) {
-      Alert.alert('提示', '正在加载配置，请稍后...');
-      return;
-    }
-
-    if (!config.apiKey) {
-      Alert.alert('提示', '请先在"我的"页面配置 API');
-      return;
-    }
-
-    // 检测意图并切换 Skill
-    const intent = detectIntent(text);
-    if (intent.type !== (activeSkill?.id || 'chat')) {
-      // 退出当前 Skill
-      if (activeSkill) {
-        deactivateSkill(activeSkill);
-      }
-      // 激活新 Skill
-      const newSkill = getSkillById(intent.type);
-      if (newSkill && newSkill.id !== 'chat') {
-        setActiveSkill(newSkill);
-        activateSkill(newSkill);
-        
-        // 显示 Skill 切换提示
-        const switchMessage: AIMessage = {
-          id: generateMessageId(),
-          role: 'assistant',
-          content: `🎯 已切换到 **${newSkill.name}** 模式！${newSkill.id === 'story' ? ' 想听什么故事呢？' : newSkill.id === 'science' ? ' 有什么问题想问吗？' : ''}`,
-          timestamp: Date.now(),
-        };
-        setMessages(prev => [...prev, switchMessage]);
-      } else {
-        setActiveSkill(null);
-      }
-    }
-
+    // 添加用户消息
     const userMessage: AIMessage = {
       id: generateMessageId(),
       role: 'user',
-      content: text.trim(),
+      content: text,
       timestamp: Date.now(),
     };
-
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
     setIsLoading(true);
     currentAIResponse.current = '';
 
-    // 创建空的 AI 消息用于流式更新
-    const aiMessageId = generateMessageId();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: aiMessageId,
+    try {
+      // 检测意图和 Skill
+      const intent = detectIntent(text);
+      const skillId = detectSkill(text);
+      
+      // 处理 Skill 切换
+      if (skillId !== 'chat' && !activeSkill) {
+        const skill = getSkillById(skillId);
+        if (skill) {
+          setActiveSkill(skill);
+          activateSkill(skill);
+        }
+      } else if (skillId === 'chat' && activeSkill) {
+        deactivateSkill(activeSkill);
+        setActiveSkill(null);
+      }
+
+      // 创建 AI 消息占位
+      const messageId = generateMessageId();
+      currentMessageId.current = messageId;
+      
+      const aiMessage: AIMessage = {
+        id: messageId,
         role: 'assistant',
         content: '',
         timestamp: Date.now(),
-      },
-    ]);
+      };
+      setMessages(prev => [...prev, aiMessage]);
 
-    try {
-      // 调用 AI 服务（流式输出）
-      const response = await aiService.sendMessage(text, undefined, (chunk: string) => {
-        // 流式更新 AI 消息内容
-        currentAIResponse.current += chunk;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId
-              ? { ...msg, content: currentAIResponse.current }
-              : msg
-          )
-        );
-      });
-
-      // 自动语音播放
-      if (autoPlayEnabled && response) {
-        await Speech.speak(response, {
+      // 初始化流式语音管理器
+      if (autoPlayEnabled) {
+        speechManager.current = new StreamSpeechManager({
           language: 'zh-CN',
           pitch: 1.0,
           rate: 0.9,
+          onSentenceStart: (sentence) => {
+            console.log('🔊 播放:', sentence);
+          },
+          onSentenceEnd: (sentence) => {
+            console.log('✅ 播放完成:', sentence);
+          },
+          onComplete: (fullText) => {
+            console.log('🎉 全部播放完成');
+          },
         });
       }
-    } catch (err) {
-      console.error('聊天请求失败:', err);
-      const errorMessage = err instanceof Error ? err.message : '未知错误';
-      setError(`聊天请求失败：${errorMessage}`);
-      
-      // 移除空消息
-      setMessages((prev) => prev.filter((msg) => msg.id !== aiMessageId));
-    } finally {
+
+      // 流式调用 AI
+      await aiService.sendMessage(
+        text,
+        { context: { activeSkill: activeSkill?.id } },
+        {
+          onChunk: (chunk) => {
+            currentAIResponse.current += chunk;
+            
+            // 更新消息内容（流式显示）
+            setMessages(prev => prev.map(msg =>
+              msg.id === messageId
+                ? { ...msg, content: currentAIResponse.current }
+                : msg
+            ));
+            
+            // 添加到语音队列（如果启用）
+            if (autoPlayEnabled) {
+              speechManager.current?.addChunk(chunk);
+            }
+          },
+          onComplete: () => {
+            // 标记流式完成，播放剩余内容
+            if (autoPlayEnabled) {
+              speechManager.current?.markComplete();
+            }
+            setIsLoading(false);
+          },
+          onError: (err) => {
+            console.error('AI 调用失败:', err);
+            setError(err.message);
+            setIsLoading(false);
+          },
+          onToolCall: (toolName, args) => {
+            console.log('🔧 AI 调用工具:', toolName, args);
+          },
+        }
+      );
+
+    } catch (err: any) {
+      console.error('发送消息失败:', err);
+      setError(err.message);
       setIsLoading(false);
     }
   };
 
-  const renderMessage = ({ item }: { item: AIMessage }) => {
-    const message = {
-      id: item.id,
-      type: (item.role === 'user' ? 'user' : 'ai') as 'user' | 'ai',
-      content: item.content,
-      timestamp: new Date(item.timestamp),
-    };
-
-    return <MessageBubble message={message} />;
+  // 处理语音输入
+  const handleSpeech = async (text: string) => {
+    if (text.trim()) {
+      await handleSend(text);
+    }
   };
 
-  const renderListHeader = () => {
-    if (!isConfigLoaded) {
-      return (
-        <View style={styles.loadingContainer}>
-          <LoadingIndicator />
-          <Text style={styles.loadingText}>正在加载配置...</Text>
-        </View>
-      );
-    }
+  // 生成消息 ID
+  const generateMessageId = () => {
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  };
 
-    if (messages.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>开始聊天吧！👋</Text>
-          <Text style={styles.emptySubtext}>
-            我是{config.persona.aiName}，你的 AI 好朋友
-          </Text>
-        </View>
-      );
+  // 切换语音播放
+  const toggleAutoPlay = async () => {
+    const newValue = !autoPlayEnabled;
+    setAutoPlayEnabled(newValue);
+    
+    if (!newValue) {
+      await speechManager.current?.stop();
     }
+  };
 
-    return null;
+  // 退出 Skill
+  const handleExitSkill = () => {
+    if (activeSkill) {
+      deactivateSkill(activeSkill);
+      setActiveSkill(null);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Skill 状态栏 */}
+      {/* 顶部状态栏 */}
       {activeSkill && (
         <View style={styles.skillBar}>
-          <View style={styles.skillBarContent}>
-            <Ionicons name={activeSkill.icon as any} size={18} color="#4A90E2" />
-            <Text style={styles.skillBarText}>{activeSkill.name}模式</Text>
-          </View>
-          <TouchableOpacity onPress={() => {
-            if (activeSkill) {
-              deactivateSkill(activeSkill);
-              setActiveSkill(null);
-            }
-          }}>
-            <Ionicons name="close" size={18} color="#999" />
+          <Text style={styles.skillText}>
+            🎯 {activeSkill.name} 模式中
+          </Text>
+          <TouchableOpacity onPress={handleExitSkill}>
+            <Ionicons name="close-circle" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       )}
 
+      {/* 消息列表 */}
       <FlatList
         ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
+        data={messages.filter(m => m.role !== 'system')}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderListHeader}
-        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <MessageBubble
+            role={item.role as 'user' | 'assistant'}
+            content={item.content}
+            timestamp={item.timestamp}
+          />
+        )}
+        contentContainerStyle={styles.messageList}
+        showsVerticalScrollIndicator={false}
       />
 
+      {/* 加载指示器 */}
+      {isLoading && (
+        <LoadingIndicator text="思考中..." />
+      )}
+
+      {/* 输入区域 */}
       <View style={styles.inputContainer}>
-        <VoiceInput
-          onSpeechRecognized={(text) => {
-            handleSendMessage(text);
-          }}
-        />
+        {/* 语音播放开关 */}
+        <TouchableOpacity
+          style={[styles.iconButton, autoPlayEnabled && styles.iconButtonActive]}
+          onPress={toggleAutoPlay}
+          accessibilityLabel={autoPlayEnabled ? '关闭语音播放' : '开启语音播放'}
+        >
+          <Ionicons
+            name={autoPlayEnabled ? 'volume-high' : 'volume-mute'}
+            size={24}
+            color={autoPlayEnabled ? '#4CAF50' : '#999'}
+          />
+        </TouchableOpacity>
+
+        {/* 文本输入 */}
         <MessageInput
-          onSend={handleSendMessage}
+          value={inputText}
+          onChangeText={setInputText}
+          onSend={handleSend}
           disabled={isLoading}
+        />
+
+        {/* 语音输入 */}
+        <VoiceInput
+          onSpeechRecognized={handleSpeech}
+          onSpeechError={(err) => setError(err.message)}
         />
       </View>
     </SafeAreaView>
@@ -295,61 +364,40 @@ ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
   skillBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#2196F3',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#F0F7FF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingVertical: 8,
   },
-  skillBarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  skillBarText: {
+  skillText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    color: '#4A90E2',
   },
-  listContent: {
-    paddingBottom: 16,
+  messageList: {
+    padding: 16,
+    paddingBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
   },
-  loadingContainer: {
-    padding: 32,
-    alignItems: 'center',
+  iconButton: {
+    padding: 8,
+    marginRight: 4,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#999',
-  },
-  emptyContainer: {
-    padding: 64,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#666',
+  iconButtonActive: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
   },
 });

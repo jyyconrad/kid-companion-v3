@@ -1,35 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useAppConfig } from '../store/useAppConfig';
 
-export type MessageType = 'user' | 'ai';
-
-export interface Message {
-  id: string;
-  type: MessageType;
+export interface MessageBubbleProps {
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: number;
 }
 
-interface MessageBubbleProps {
-  message: Message;
-}
-
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const isUser = message.type === 'user';
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content, timestamp }) => {
+  const isUser = role === 'user';
   const { language = 'zh-CN' } = useAppConfig.getState();
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
       <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
         {isUser ? (
-          <Text style={styles.userText}>{message.content}</Text>
+          <Text style={styles.userText}>{content}</Text>
         ) : (
-          <Markdown style={markdownStyles}>{message.content}</Markdown>
+          <Markdown style={markdownStyles}>{content}</Markdown>
         )}
         <Text style={[styles.timestamp, isUser ? styles.userTimestamp : styles.aiTimestamp]}>
-          {message.timestamp.toLocaleTimeString(language, {
+          {new Date(timestamp).toLocaleTimeString(language, {
             hour: '2-digit',
             minute: '2-digit',
           })}
@@ -42,110 +35,63 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
-    maxWidth: '80%',
-    paddingHorizontal: 16,
   },
   userContainer: {
-    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
   },
   aiContainer: {
-    alignSelf: 'flex-start',
+    alignItems: 'flex-start',
   },
   bubble: {
-    borderRadius: 16,
-    padding: 12,
+    maxWidth: '80%',
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
   userBubble: {
-    backgroundColor: '#4A90E2',
-    borderBottomRightRadius: 4,
+    backgroundColor: '#007AFF',
   },
   aiBubble: {
-    backgroundColor: '#F5F5F5',
-    borderBottomLeftRadius: 4,
+    backgroundColor: '#E5E5EA',
   },
   userText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 16,
     lineHeight: 22,
   },
   timestamp: {
-    fontSize: 12,
-    textAlign: 'right',
+    fontSize: 11,
     marginTop: 4,
-  },
-  userTimestamp: {
     opacity: 0.7,
   },
+  userTimestamp: {
+    color: '#fff',
+    textAlign: 'right',
+  },
   aiTimestamp: {
-    opacity: 0.6,
+    color: '#666',
   },
 });
 
-const markdownStyles = {
+const markdownStyles = StyleSheet.create({
   body: {
-    color: '#333',
+    color: '#000',
     fontSize: 16,
     lineHeight: 22,
   },
   paragraph: {
-    margin: 0,
     marginBottom: 4,
   },
   strong: {
-    fontWeight: '700',
-    color: '#4A90E2',
-  } as any,
+    fontWeight: 'bold',
+  },
   em: {
     fontStyle: 'italic',
-  } as any,
-  heading1: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#4A90E2',
-    marginTop: 8,
-    marginBottom: 8,
-  } as any,
-  heading2: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#4A90E2',
-    marginTop: 6,
-    marginBottom: 6,
-  } as any,
-  list: {
-    paddingLeft: 20,
-    marginTop: 4,
-    marginBottom: 4,
-  } as any,
-  listItem: {
-    marginBottom: 4,
-  } as any,
-  blockquote: {
-    backgroundColor: '#F0F0F0',
-    paddingLeft: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4A90E2',
-    paddingVertical: 8,
-    marginVertical: 8,
-  } as any,
-  code: {
-    backgroundColor: '#F5F5F5',
+  },
+  code_inline: {
+    backgroundColor: '#f0f0f0',
     paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  } as any,
-  code_block: {
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginVertical: 8,
-  } as any,
-};
+    borderRadius: 3,
+    fontSize: 14,
+  },
+});

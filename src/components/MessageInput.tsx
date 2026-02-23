@@ -2,14 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-interface MessageInputProps {
+export interface MessageInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
   inputRef?: React.RefObject<TextInput>;
+  value?: string;
+  onChangeText?: (text: string) => void;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, inputRef }) => {
-  const [text, setText] = useState('');
+export const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled = false, inputRef, value, onChangeText }) => {
+  const [internalText, setInternalText] = useState('');
+  const text = value !== undefined ? value : internalText;
+  const setText = onChangeText || setInternalText;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const inputInternalRef = useRef<TextInput>(null);
   const activeInputRef = inputRef || inputInternalRef;

@@ -1,6 +1,19 @@
-import { useAppConfig } from '../store/useAppConfig';
+/**
+ * AI Service - 基于 Vercel AI SDK
+ * 
+ * 功能：
+ * 1. 流式输出（打字机效果）
+ * 2. Tool 调用（AI 可以自主调用工具）
+ * 3. 对话历史管理
+ * 4. 配置管理集成
+ */
+
+import { streamText, tool } from 'ai';
+import { z } from 'zod';
+import { createOpenAI } from '@ai-sdk/openai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { aiParseAndUpdate } from '../utils/aiFileTools';
+import { useAppConfig } from '../store/useAppConfig';
+import { aiGetConfig, aiUpdateConfig } from '../utils/aiFileTools';
 
 export interface Message {
   id: string;
@@ -9,11 +22,28 @@ export interface Message {
   timestamp: number;
 }
 
+export interface StreamCallbacks {
+  onChunk?: (chunk: string) => void;
+  onComplete?: (fullText: string) => void;
+  onError?: (error: Error) => void;
+  onToolCall?: (toolName: string, args: any) => void;
+}
+
 export class AIService {
+  /**
+   * 发送消息（流式输出）
+   * 
+   * @param text 用户输入
+   * @param options 选项
+   * @param callbacks 回调函数
+   */
   async sendMessage(
-    text: string | Message[],
-    options?: any,
-    onChunk?: (chunk: string) => void
+    text: string,
+    options?: {
+      context?: any;
+      skipConfigUpdate?: boolean;
+    },
+    callbacks?: StreamCallbacks
   ): Promise<string> {
     const config = useAppConfig.getState();
     const { apiUrl, apiKey, models, language } = config;
@@ -22,86 +52,179 @@ export class AIService {
       throw new Error('API Key 未配置');
     }
 
-    // 加载系统提示词（三文件配置）
-    let systemPrompt = '';
-    if (options?.context?.isWizard) {
-      systemPrompt = options?.context?.systemPrompt ||
-        '你是一个友好的 AI 伙伴配置向导，负责收集关于孩子的信息。';
-    } else {
-      systemPrompt = await this.buildSystemPromptFromFiles(config.persona, language);
-    }
+    try {
+      // 加载系统提示词（三文件配置）
+      let systemPrompt = '';
+      if (options?.context?.isWizard) {
+        systemPrompt = options?.context?.systemPrompt ||
+          '你是一个友好的 AI 伙伴配置向导，负责收集关于孩子的信息。';
+      } else {
+        systemPrompt = await this.buildSystemPromptFromFiles(config.persona, language);
+      }
 
-    // 准备消息：带入历史消息
-    let messages: Message[];
-    if (typeof text === 'string') {
+      // 准备消息：带入历史消息
       const historyMessages = await this.getRecentHistory(10);
-      messages = [
-        { id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() },
-        ...historyMessages,
-        { id: 'user', role: 'user', content: text, timestamp: Date.now() }
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: text }
       ];
-    } else {
-      messages = text;
-    }
 
-    // 调用 AI API（支持流式）
-    const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey, onChunk);
+      // 创建模型实例（支持硅基流动）
+      const openai = createOpenAI({
+        baseURL: apiUrl,
+        apiKey: apiKey,
+      });
+      const model = openai(models.chat);
 
-    // 保存消息到历史
-    if (typeof text === 'string') {
-      await this.saveMessageToHistory({ role: 'user', content: text });
-      await this.saveMessageToHistory({ role: 'assistant', content: response });
+      // 定义工具
+      const tools = {
+        getConfig: tool({
+          description: '获取配置信息（孩子名字、年龄、兴趣等）',
+          parameters: z.object({
+            field: z.string().optional().describe('配置字段名，如 childName, childAge, aiName 等'),
+          }),
+          execute: async ({ field }: { field?: string }) => {
+            callbacks?.onToolCall?.('getConfig', { field });
+            return await aiGetConfig({ field: field as any });
+          },
+        }),
+        updateConfig: tool({
+          description: '更新配置信息（如孩子说"我改名叫小明了"）',
+          parameters: z.object({
+            field: z.string().describe('配置字段名'),
+            value: z.any().describe('新的值'),
+          }),
+          execute: async ({ field, value }: { field: string; value: any }) => {
+            callbacks?.onToolCall?.('updateConfig', { field, value });
+            const result = await aiUpdateConfig('data', field, value);
+            return result;
+          },
+        }),
+      };
+
+      // 流式调用 AI
+      const result = streamText({
+        model,
+        messages,
+        tools,
+        temperature: 0.7,
+        maxTokens: 1000,
+      });
+
+      // 处理流式响应
+      let fullResponse = '';
       
-      // 检查用户输入是否需要更新配置（AI 工具：自动解析并更新）
-      if (!options?.context?.skipConfigUpdate) {
+      for await (const chunk of result.textStream) {
+        fullResponse += chunk;
+        callbacks?.onChunk?.(chunk);
+      }
+
+      // 等待工具调用完成（如果有）
+      const toolCalls = await result.toolCalls;
+      if (toolCalls && toolCalls.length > 0) {
+        console.log('AI 调用了工具:', toolCalls);
+      }
+
+      // 保存消息到历史
+      await this.saveMessageToHistory({ role: 'user', content: text });
+      await this.saveMessageToHistory({ role: 'assistant', content: fullResponse });
+
+      // 检查用户输入是否需要更新配置（兼容旧逻辑）
+      if (!options?.skipConfigUpdate) {
+        const { aiParseAndUpdate } = await import('../utils/aiFileTools');
         const updateResult = await aiParseAndUpdate(text);
         if (updateResult.success && updateResult.updated) {
           console.log(`配置已自动更新：${updateResult.updated}`);
         }
       }
-    }
 
-    return response;
-  }
+      callbacks?.onComplete?.(fullResponse);
+      return fullResponse;
 
-  // 获取最近的历史消息
-  private async getRecentHistory(limit: number = 10): Promise<Message[]> {
-    try {
-      const historyJson = await AsyncStorage.getItem('@chat_message_history');
-      const history: Message[] = JSON.parse(historyJson || '[]');
-      return history.slice(-limit);
-    } catch (error) {
-      console.error('获取历史消息失败:', error);
-      return [];
+    } catch (error: any) {
+      console.error('AI 调用失败:', error);
+      callbacks?.onError?.(error);
+      throw error;
     }
   }
 
-  // 保存消息到历史
-  private async saveMessageToHistory(message: { role: string; content: string }) {
+  /**
+   * 构建系统提示词（从三文件配置）
+   */
+  private async buildSystemPromptFromFiles(
+    persona: { system?: string; user?: string; identity?: string },
+    language: string
+  ): Promise<string> {
     try {
-      const historyJson = await AsyncStorage.getItem('@chat_message_history');
-      const history: Message[] = JSON.parse(historyJson || '[]');
+      const [systemMd, userMd, identityMd] = await Promise.all([
+        AsyncStorage.getItem('@kid_companion_system'),
+        AsyncStorage.getItem('@kid_companion_user'),
+        AsyncStorage.getItem('@kid_companion_identity'),
+      ]);
+
+      // 获取结构化配置摘要
+      const configDataJson = await AsyncStorage.getItem('@kid_companion_config_data');
+      const configData = configDataJson ? JSON.parse(configDataJson) : null;
       
-      history.push({
-        id: Date.now().toString(),
-        role: message.role as 'user' | 'assistant',
-        content: message.content,
-        timestamp: Date.now()
-      });
+      const configSummary = configData
+        ? `## 配置摘要
+- **孩子名字**: ${configData.childName || '小朋友'}
+- **孩子年龄**: ${configData.childAge || 6}岁
+- **AI 名字**: ${configData.aiName || '小伴童'}
+- **兴趣**: ${configData.interests?.join(', ') || '未设置'}
+`
+        : '';
 
-      // 只保留最近 50 条
-      if (history.length > 50) {
-        history.splice(0, history.length - 50);
-      }
+      // 动态上下文
+      const dynamicContext = this.buildDynamicContext();
 
-      await AsyncStorage.setItem('@chat_message_history', JSON.stringify(history));
+      const systemMdContent = systemMd || `# system.md - 系统规则
+
+## 核心规则
+1. 使用简单易懂的语言与孩子交流
+2. 保持友好、积极的语气
+3. 使用表情符号增加趣味性
+4. 回复简短（不超过 100 字）
+5. 鼓励孩子提问和探索`;
+
+      const userMdContent = userMd || `# user.md - 关于孩子
+
+## 基本信息
+- **名字**: 小朋友
+- **年龄**: 6 岁`;
+
+      const identityMdContent = identityMd || `# identity.md - AI 身份
+
+## 基本信息
+- **名字**: 小伴童
+- **角色**: 孩子的 AI 好朋友`;
+
+      return `${systemMdContent}
+
+${configSummary}${dynamicContext}${userMdContent}
+
+${identityMdContent}
+
+## AI 工具：配置管理
+你可以调用以下工具来管理配置：
+- **getConfig()**: 获取配置信息（孩子名字、年龄、兴趣等）
+- **updateConfig()**: 更新配置（如孩子说"我改名叫小明了"）
+
+当用户提到修改名字、年龄、兴趣时，请调用 updateConfig 更新配置。
+
+请始终使用 Markdown 格式回复。`;
+
     } catch (error) {
-      console.error('保存历史消息失败:', error);
+      console.error('构建系统提示词失败:', error);
+      return '你是一个友好的 AI 伙伴，请用简单易懂的语言与孩子交流。';
     }
   }
 
-  // 构建动态上下文（日期、时间、时段）
-  private async buildDynamicContext(): Promise<string> {
+  /**
+   * 构建动态上下文（日期、时间、时段）
+   */
+  private buildDynamicContext(): string {
     const now = new Date();
     const date = now.toLocaleDateString('zh-CN', {
       year: 'numeric',
@@ -128,176 +251,46 @@ export class AIService {
 `;
   }
 
-  private async buildSystemPromptFromFiles(persona: any, language: string = 'zh-CN'): Promise<string> {
+  /**
+   * 获取最近的历史消息
+   */
+  private async getRecentHistory(limit: number = 10): Promise<Message[]> {
     try {
-      const systemMd = await AsyncStorage.getItem('@kid_companion_system');
-      const userMd = await AsyncStorage.getItem('@kid_companion_user');
-      const identityMd = await AsyncStorage.getItem('@kid_companion_identity');
-      
-      // 读取结构化配置数据（如果有）
-      const configDataJson = await AsyncStorage.getItem('@kid_companion_config_data');
-      const configData = configDataJson ? JSON.parse(configDataJson) : null;
-
-      if (systemMd && userMd && identityMd) {
-        // 添加动态上下文
-        const dynamicContext = await this.buildDynamicContext();
-        
-        // 添加结构化数据摘要（方便 AI 快速访问）
-        let configSummary = '';
-        if (configData) {
-          configSummary = `## 配置摘要（快速访问）
-- **孩子名字**: ${configData.childName}
-- **年龄**: ${configData.childAge}岁
-- **AI 名字**: ${configData.aiName}
-- **风格**: ${configData.aiStyle}
-
-`;
-        }
-        
-        return `${systemMd}\n\n${configSummary}${dynamicContext}${userMd}\n\n${identityMd}
-
-## AI 工具：配置管理
-你可以调用以下工具来管理配置：
-- **aiGetConfig()**: 获取配置信息（孩子名字、年龄、兴趣等）
-- **aiUpdateConfig()**: 更新配置（如孩子说"我改名叫小明了"）
-- **aiCheckConfig()**: 检查配置状态
-
-当用户提到修改名字、年龄、兴趣时，请调用 aiUpdateConfig 更新配置。
-
-请始终使用 Markdown 格式回复。`;
-      }
+      const historyJson = await AsyncStorage.getItem('@chat_message_history');
+      const history: Message[] = JSON.parse(historyJson || '[]');
+      return history.slice(-limit);
     } catch (error) {
-      console.error('加载配置文件失败:', error);
-    }
-
-    return this.buildSystemPrompt(persona, language);
-  }
-
-  private buildSystemPrompt(persona: any, language: string = 'zh-CN'): string {
-    const { aiName, chatStyle, childAge, interests } = persona;
-
-    if (language.startsWith('zh')) {
-      return `你是一个名为"${aiName}"的 AI 儿童智能伙伴。
-
-角色特点：
-- 聊天风格：${chatStyle}
-- 目标用户：${childAge}岁儿童
-- 兴趣领域：${interests.join('、') || '各种有趣的话题'}
-
-回答要求：
-1. 语言生动有趣，符合儿童认知水平
-2. 回答简洁明了，避免复杂专业术语
-3. 多用比喻和例子帮助孩子理解
-4. 鼓励孩子思考和提问
-5. 保持友善、耐心的态度
-
-请用中文回答。`;
-    } else {
-      return `You are an AI child companion named "${aiName}".
-
-Role characteristics:
-- Chat style: ${chatStyle}
-- Target user: ${childAge}-year-old child
-- Interest areas: ${interests.join(', ') || 'various interesting topics'}
-
-Response requirements:
-1. Use lively and interesting language appropriate for children's cognitive level
-2. Keep answers concise and clear, avoiding complex jargon
-3. Use metaphors and examples to help children understand
-4. Encourage children to think and ask questions
-5. Maintain a friendly and patient attitude
-
-Please respond in ${language.startsWith('en') ? 'English' : 'the specified language'}.`;
+      console.error('获取历史消息失败:', error);
+      return [];
     }
   }
 
-  private async callAI(
-    messages: Message[],
-    systemPrompt: string,
-    model: string,
-    apiUrl: string,
-    apiKey: string,
-    onChunk?: (chunk: string) => void
-  ): Promise<string> {
+  /**
+   * 保存消息到历史
+   */
+  private async saveMessageToHistory(message: { role: string; content: string }) {
     try {
-      const response = await fetch(`${apiUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          temperature: 0.8,
-          max_tokens: 1000,
-          stream: !!onChunk, // 有回调时启用流式
-        }),
+      const historyJson = await AsyncStorage.getItem('@chat_message_history');
+      const history: Message[] = JSON.parse(historyJson || '[]');
+      
+      history.push({
+        id: Date.now().toString(),
+        role: message.role as 'user' | 'assistant',
+        content: message.content,
+        timestamp: Date.now()
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API 请求失败：${response.statusText} - ${errorText}`);
+      // 只保留最近 50 条
+      if (history.length > 50) {
+        history.splice(0, history.length - 50);
       }
 
-      // 流式处理
-      if (onChunk && response.body) {
-        return await this.processStreamResponse(response.body, onChunk);
-      }
-
-      // 普通响应
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || '';
-    } catch (error: any) {
-      console.error('AI 调用失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理流式响应
-  private async processStreamResponse(
-    body: ReadableStream<Uint8Array>,
-    onChunk: (chunk: string) => void
-  ): Promise<string> {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content || '';
-              if (content) {
-                fullText += content;
-                onChunk(content);
-              }
-            } catch (e) {
-              // 跳过解析错误
-            }
-          }
-        }
-      }
+      await AsyncStorage.setItem('@chat_message_history', JSON.stringify(history));
     } catch (error) {
-      console.error('流式处理失败:', error);
+      console.error('保存历史消息失败:', error);
     }
-
-    return fullText;
   }
 }
 
+// 导出单例
 export const aiService = new AIService();
