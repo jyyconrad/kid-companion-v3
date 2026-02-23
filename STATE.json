@@ -1,11 +1,11 @@
 {
     "projectName": "kid-companion",
-    "version": "v3.1",
+    "version": "v3.6",
     "path": "/root/.openclaw/workspace-coding/projects/kid-companion-v3",
-    "description": "KidCompanion - React Native Expo 应用，儿童智能陪伴",
+    "description": "KidCompanion - React Native Expo 应用，儿童智能陪伴（支持 Skills 系统）",
     "createdAt": "2026-02-20T02:35:00+08:00",
-    "lastUpdated": "2026-02-23T10:30:00+08:00",
-    "currentPhase": "completed",
+    "lastUpdated": "2026-02-23T15:45:00+08:00",
+    "currentPhase": "v3.6_completed",
     "phases": {
         "initialization": {
             "status": "completed",
@@ -67,8 +67,59 @@
                     "apkSize": "68M"
                 }
             ]
+        },
+        "v3.6": {
+            "status": "completed",
+            "description": "v3.6 - 动态信息 + 主动欢迎 + Skills 系统",
+            "completedAt": "2026-02-23T15:45:00+08:00",
+            "tasks": [
+                {
+                    "name": "P0-1: 引导跳转修复",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00"
+                },
+                {
+                    "name": "P0-2: 动态信息注入",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00",
+                    "details": "aiService.ts - buildDynamicContext()"
+                },
+                {
+                    "name": "P0-3: 主动欢迎消息",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00",
+                    "details": "ChatScreen.tsx - triggerWelcomeMessage()"
+                },
+                {
+                    "name": "P0-4: Skills 架构",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00",
+                    "details": "src/skills/ 目录创建"
+                },
+                {
+                    "name": "P0-5: 故事 Skill",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00"
+                },
+                {
+                    "name": "P0-6: 科普 Skill",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00"
+                },
+                {
+                    "name": "P0-7: 意图识别",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00",
+                    "details": "src/utils/intentDetection.ts"
+                },
+                {
+                    "name": "P1-1: Skill 切换 UI",
+                    "status": "completed",
+                    "completedAt": "2026-02-23T15:45:00+08:00"
+                }
+            ]
         }
     },
     "overallProgress": 100,
-    "notes": "项目已完成所有核心功能开发，包括聊天、故事讲述、科学知识功能、语音输入和 APK 构建。使用 React Native (Expo) + TypeScript + AI SDK 实现。APK 文件：kid-companion-v3-final.apk (68M)"
+    "notes": "v3.6 完成：动态信息注入、主动欢迎消息、Skills 系统（故事/科普）、意图识别、Skill 切换 UI。核心功能：聊天、故事、科普、语音输入/播放、流式输出、Markdown 渲染。"
 }
