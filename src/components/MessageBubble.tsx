@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useAppConfig } from '../store/useAppConfig';
 
@@ -98,34 +98,34 @@ const markdownStyles = {
     marginBottom: 4,
   },
   strong: {
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4A90E2',
-  },
+  } as any,
   em: {
     fontStyle: 'italic',
-  },
+  } as any,
   heading1: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4A90E2',
     marginTop: 8,
     marginBottom: 8,
-  },
+  } as any,
   heading2: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#4A90E2',
     marginTop: 6,
     marginBottom: 6,
-  },
+  } as any,
   list: {
     paddingLeft: 20,
     marginTop: 4,
     marginBottom: 4,
-  },
+  } as any,
   listItem: {
     marginBottom: 4,
-  },
+  } as any,
   blockquote: {
     backgroundColor: '#F0F0F0',
     paddingLeft: 12,
@@ -133,19 +133,19 @@ const markdownStyles = {
     borderLeftColor: '#4A90E2',
     paddingVertical: 8,
     marginVertical: 8,
-  },
+  } as any,
   code: {
     backgroundColor: '#F5F5F5',
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
+  } as any,
   code_block: {
     backgroundColor: '#F5F5F5',
     padding: 12,
     borderRadius: 8,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginVertical: 8,
-  },
+  } as any,
 };

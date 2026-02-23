@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAppConfig } from '../store/useAppConfig';
 
 interface Model {
@@ -23,6 +24,7 @@ interface ModelSelectScreenProps {
 }
 
 export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
+  const navigation = useNavigation();
   const config = useAppConfig();
   const [selectedChatModel, setSelectedChatModel] = useState(config.models.chat || 'deepseek-ai/DeepSeek-V3.2');
   const [selectedStoryModel, setSelectedStoryModel] = useState(config.models.story || 'deepseek-ai/DeepSeek-V3.2');

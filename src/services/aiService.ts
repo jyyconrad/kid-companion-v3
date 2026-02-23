@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
 }
@@ -14,72 +14,104 @@ export class AIService {
     options?: any,
     onChunk?: (chunk: string) => void
   ): Promise<string> {
-    // 每次调用都获取最新配置
     const config = useAppConfig.getState();
     const { apiUrl, apiKey, models, language } = config;
 
     if (!apiKey) {
-      throw new Error('API Key未配置');
+      throw new Error('API Key 未配置');
     }
 
-    // 确定系统提示词
+    // 加载系统提示词（三文件配置）
     let systemPrompt = '';
     if (options?.context?.isWizard) {
-      // 向导模式使用特定的系统提示词
       systemPrompt = options?.context?.systemPrompt ||
-        '你是一个友好的AI伙伴配置向导，负责收集关于孩子的信息。';
+        '你是一个友好的 AI 伙伴配置向导，负责收集关于孩子的信息。';
     } else {
-      // 常规模式使用默认系统提示词
-      systemPrompt = this.buildSystemPrompt(config.persona, language);
+      systemPrompt = await this.buildSystemPromptFromFiles(config.persona, language);
     }
 
-    // 准备消息
+    // 准备消息：带入历史消息
     let messages: Message[];
     if (typeof text === 'string') {
-      // 简单文本输入
-      messages = [{ id: '1', role: 'user', content: text, timestamp: Date.now() }];
+      const historyMessages = await this.getRecentHistory(10);
+      messages = [
+        { id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() },
+        ...historyMessages,
+        { id: 'user', role: 'user', content: text, timestamp: Date.now() }
+      ];
     } else {
-      // 消息数组
       messages = text;
     }
 
-    // 调用AI API
-    const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey);
+    // 调用 AI API（支持流式）
+    const response = await this.callAI(messages, systemPrompt, models.chat, apiUrl, apiKey, onChunk);
+
+    // 保存消息到历史
+    if (typeof text === 'string') {
+      await this.saveMessageToHistory({ role: 'user', content: text });
+      await this.saveMessageToHistory({ role: 'assistant', content: response });
+    }
 
     return response;
   }
 
+  // 获取最近的历史消息
+  private async getRecentHistory(limit: number = 10): Promise<Message[]> {
+    try {
+      const historyJson = await AsyncStorage.getItem('@chat_message_history');
+      const history: Message[] = JSON.parse(historyJson || '[]');
+      return history.slice(-limit);
+    } catch (error) {
+      console.error('获取历史消息失败:', error);
+      return [];
+    }
+  }
+
+  // 保存消息到历史
+  private async saveMessageToHistory(message: { role: string; content: string }) {
+    try {
+      const historyJson = await AsyncStorage.getItem('@chat_message_history');
+      const history: Message[] = JSON.parse(historyJson || '[]');
+      
+      history.push({
+        id: Date.now().toString(),
+        role: message.role as 'user' | 'assistant',
+        content: message.content,
+        timestamp: Date.now()
+      });
+
+      // 只保留最近 50 条
+      if (history.length > 50) {
+        history.splice(0, history.length - 50);
+      }
+
+      await AsyncStorage.setItem('@chat_message_history', JSON.stringify(history));
+    } catch (error) {
+      console.error('保存历史消息失败:', error);
+    }
+  }
+
   private async buildSystemPromptFromFiles(persona: any, language: string = 'zh-CN'): Promise<string> {
     try {
-      // 加载三文件配置
       const systemMd = await AsyncStorage.getItem('@kid_companion_system');
       const userMd = await AsyncStorage.getItem('@kid_companion_user');
       const identityMd = await AsyncStorage.getItem('@kid_companion_identity');
 
       if (systemMd && userMd && identityMd) {
-        // 使用三文件配置
-        return `${systemMd}
-
-${userMd}
-
-${identityMd}
-
-请始终使用 Markdown 格式回复。`;
+        return `${systemMd}\n\n${userMd}\n\n${identityMd}\n\n请始终使用 Markdown 格式回复。`;
       }
     } catch (error) {
       console.error('加载配置文件失败:', error);
     }
 
-    // 降级到旧的系统提示词
     return this.buildSystemPrompt(persona, language);
   }
 
   private buildSystemPrompt(persona: any, language: string = 'zh-CN'): string {
     const { aiName, chatStyle, childAge, interests } = persona;
 
-    // 根据语言生成相应的系统提示词
     if (language.startsWith('zh')) {
-      return `你是一个名为"${aiName}"的AI儿童智能伙伴。
+      return `你是一个名为"${aiName}"的 AI 儿童智能伙伴。
 
 角色特点：
 - 聊天风格：${chatStyle}
@@ -95,7 +127,6 @@ ${identityMd}
 
 请用中文回答。`;
     } else {
-      // 英文版本
       return `You are an AI child companion named "${aiName}".
 
 Role characteristics:
@@ -119,7 +150,8 @@ Please respond in ${language.startsWith('en') ? 'English' : 'the specified langu
     systemPrompt: string,
     model: string,
     apiUrl: string,
-    apiKey: string
+    apiKey: string,
+    onChunk?: (chunk: string) => void
   ): Promise<string> {
     try {
       const response = await fetch(`${apiUrl}/chat/completions`, {
@@ -130,29 +162,75 @@ Please respond in ${language.startsWith('en') ? 'English' : 'the specified langu
         },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-          ],
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
           temperature: 0.8,
           max_tokens: 1000,
+          stream: !!onChunk, // 有回调时启用流式
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`API请求失败: ${response.statusText} - ${errorText}`);
+        throw new Error(`API 请求失败：${response.statusText} - ${errorText}`);
       }
 
+      // 流式处理
+      if (onChunk && response.body) {
+        return await this.processStreamResponse(response.body, onChunk);
+      }
+
+      // 普通响应
       const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error('AI Service Error:', error);
+      return data.choices?.[0]?.message?.content || '';
+    } catch (error: any) {
+      console.error('AI 调用失败:', error);
       throw error;
     }
+  }
+
+  // 处理流式响应
+  private async processStreamResponse(
+    body: ReadableStream<Uint8Array>,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                fullText += content;
+                onChunk(content);
+              }
+            } catch (e) {
+              // 跳过解析错误
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('流式处理失败:', error);
+    }
+
+    return fullText;
   }
 }
 

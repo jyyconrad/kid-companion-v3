@@ -12,11 +12,13 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { CollectedInfo } from '../constants/wizardPrompt';
 import { wizardService } from '../services/wizardService';
 import { MessageBubble } from '../components/MessageBubble';
+import { VoiceInput } from '../components/VoiceInput';
 import { aiService } from '../services/aiService';
 
 interface Message {
@@ -287,29 +289,37 @@ ${info.interests?.join('、') || '各种有趣的事物'}
         </View>
 
         {!isComplete && (
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="输入你的回答..."
-              value={inputText}
-              onChangeText={setInputText}
-              onSubmitEditing={handleSend}
-              editable={!isLoading}
-              multiline
-              maxLength={500}
+          <>
+            <VoiceInput
+              onSpeechRecognized={(text) => {
+                setInputText(text);
+                handleSend();
+              }}
             />
-            <TouchableOpacity 
-              style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
-              onPress={handleSend}
-              disabled={isLoading || !inputText.trim()}
-            >
-              <Feather 
-                name="send" 
-                size={20} 
-                color={isLoading || !inputText.trim() ? '#9CA3AF' : '#FFFFFF'} 
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="输入你的回答..."
+                value={inputText}
+                onChangeText={setInputText}
+                onSubmitEditing={handleSend}
+                editable={!isLoading}
+                multiline
+                maxLength={500}
               />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity 
+                style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
+                onPress={handleSend}
+                disabled={isLoading || !inputText.trim()}
+              >
+                <Feather 
+                  name="send" 
+                  size={20} 
+                  color={isLoading || !inputText.trim() ? '#9CA3AF' : '#FFFFFF'} 
+                />
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>

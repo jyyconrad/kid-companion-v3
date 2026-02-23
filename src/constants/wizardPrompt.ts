@@ -70,6 +70,7 @@ export const WIZARD_SYSTEM_PROMPT = `你是小伴童 AI 伙伴的配置向导，
 
 export interface CollectedInfo {
   childName: string;
+  childAge?: number;
   age: number;
   personality: string;
   interests: string[];

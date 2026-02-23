@@ -5,7 +5,9 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Text,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
 import { VoiceInput } from '../components/VoiceInput';
@@ -19,8 +21,10 @@ export const ChatScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const flatListRef = useRef<FlatList<AIMessage>>(null);
   const config = useAppConfig();
+  const currentAIResponse = useRef<string>('');
 
   // 启动时加载配置
   useEffect(() => {
@@ -32,12 +36,14 @@ export const ChatScreen: React.FC = () => {
     setIsConfigLoaded(true);
   };
 
+  // 消息变化时滚动到底部
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
+  // 错误提示
   useEffect(() => {
     if (error) {
       Alert.alert('聊天错误', error);
@@ -52,14 +58,13 @@ export const ChatScreen: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    // 确保配置已加载
     if (!isConfigLoaded) {
       Alert.alert('提示', '正在加载配置，请稍后...');
       return;
     }
 
     if (!config.apiKey) {
-      Alert.alert('提示', '请先在"我的"页面配置API');
+      Alert.alert('提示', '请先在"我的"页面配置 API');
       return;
     }
 
@@ -72,125 +77,153 @@ export const ChatScreen: React.FC = () => {
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+    currentAIResponse.current = '';
+
+    // 创建空的 AI 消息用于流式更新
+    const aiMessageId = generateMessageId();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: aiMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+      },
+    ]);
 
     try {
-      // 调用AI服务
-      const response = await aiService.sendMessage(messages, (chunk: any) => {
-        // TODO: 实现流式输出
-        console.log('Chunk:', chunk);
+      // 调用 AI 服务（流式输出）
+      const response = await aiService.sendMessage(text, undefined, (chunk: string) => {
+        // 流式更新 AI 消息内容
+        currentAIResponse.current += chunk;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? { ...msg, content: currentAIResponse.current }
+              : msg
+          )
+        );
       });
 
-      const aiMessage: AIMessage = {
-        id: generateMessageId(),
-        role: 'assistant',
-        content: response,
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
+      // 自动语音播放
+      if (autoPlayEnabled && response) {
+        await Speech.speak(response, {
+          language: 'zh-CN',
+          pitch: 1.0,
+          rate: 0.9,
+        });
+      }
     } catch (err) {
       console.error('聊天请求失败:', err);
       const errorMessage = err instanceof Error ? err.message : '未知错误';
       setError(`聊天请求失败：${errorMessage}`);
+      
+      // 移除空消息
+      setMessages((prev) => prev.filter((msg) => msg.id !== aiMessageId));
     } finally {
       setIsLoading(false);
     }
   };
 
   const renderMessage = ({ item }: { item: AIMessage }) => {
-    return <MessageBubble message={
-      {
-        id: item.id,
-        type: item.role === 'user' ? 'user' : 'ai',
-        content: item.content,
-        timestamp: new Date(item.timestamp),
-      }
-    } />;
+    const message = {
+      id: item.id,
+      type: (item.role === 'user' ? 'user' : 'ai') as 'user' | 'ai',
+      content: item.content,
+      timestamp: new Date(item.timestamp),
+    };
+
+    return <MessageBubble message={message} />;
+  };
+
+  const renderListHeader = () => {
+    if (!isConfigLoaded) {
+      return (
+        <View style={styles.loadingContainer}>
+          <LoadingIndicator />
+          <Text style={styles.loadingText}>正在加载配置...</Text>
+        </View>
+      );
+    }
+
+    if (messages.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>开始聊天吧！👋</Text>
+          <Text style={styles.emptySubtext}>
+            我是{config.persona.aiName}，你的 AI 好朋友
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messageList}
-          contentContainerStyle={styles.messageListContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              {!isConfigLoaded ? (
-                <Text style={styles.loadingText}>正在加载配置...</Text>
-              ) : (
-                <>
-                  <Text style={styles.emptyText}>
-                    我是{config.persona.aiName}，很高兴认识你！
-                  </Text>
-                  <Text style={styles.emptySubText}>
-                    {config.persona.chatStyle} · 开始聊天吧！
-                  </Text>
-                  {!config.apiKey && (
-                    <Text style={styles.configHint}>
-                      请先在"我的"页面配置API
-                    </Text>
-                  )}
-                </>
-              )}
-            </View>
-          }
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={renderListHeader}
+        contentContainerStyle={styles.listContent}
+      />
+
+      <View style={styles.inputContainer}>
+        <VoiceInput
+          onSpeechRecognized={(text) => {
+            handleSendMessage(text);
+          }}
         />
-        {isLoading && <LoadingIndicator />}
+        <MessageInput
+          onSend={handleSendMessage}
+          disabled={isLoading}
+        />
       </View>
-      <MessageInput onSend={handleSendMessage} disabled={isLoading} />
     </SafeAreaView>
   );
 };
 
-const { Text } = require('react-native');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
   },
-  content: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  listContent: {
+    paddingBottom: 16,
   },
-  messageList: {
-    flex: 1,
-  },
-  messageListContent: {
-    paddingTop: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  inputContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    backgroundColor: '#fff',
+  },
+  loadingContainer: {
     padding: 32,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
+    alignItems: 'center',
   },
   loadingText: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#999',
+  },
+  emptyContainer: {
+    padding: 64,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptySubtext: {
     fontSize: 16,
     color: '#666',
-  },
-  configHint: {
-    fontSize: 14,
-    color: '#4A90E2',
-    marginTop: 16,
-    textAlign: 'center',
   },
 });
