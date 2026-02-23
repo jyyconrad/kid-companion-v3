@@ -43,7 +43,7 @@ const ProfileStack = () => {
       <Stack.Screen
         name="ApiConfigScreen"
         component={ApiConfigScreen}
-        options={{ title: 'API配置' }}
+        options={{ title: 'API 配置' }}
       />
       <Stack.Screen
         name="ModelSelectScreen"
@@ -58,7 +58,7 @@ const ProfileStack = () => {
       <Stack.Screen
         name="PersonaEditScreen"
         component={PersonaEditScreen}
-        options={{ title: 'AI角色设置' }}
+        options={{ title: 'AI 角色设置' }}
       />
       <Stack.Screen
         name="PersonaGuideScreen"
@@ -69,35 +69,76 @@ const ProfileStack = () => {
   );
 };
 
+// 初始设置 Stack - 先配置 API，再配置角色
+const SetupStack = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: 'white',
+        },
+        headerShadowVisible: true,
+        headerTitleStyle: {
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: '#333',
+        },
+      }}
+    >
+      <Stack.Screen
+        name="ApiConfigScreen"
+        component={ApiConfigScreen}
+        options={{ title: '配置 AI 服务' }}
+      />
+      <Stack.Screen
+        name="WizardScreen"
+        component={WizardScreen}
+        options={{ title: 'AI 伙伴配置' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
 export const AppNavigator: React.FC = () => {
   const config = useAppConfig();
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+  const [setupState, setSetupState] = useState<'loading' | 'needs-api' | 'needs-persona' | 'completed'>('loading');
 
   useEffect(() => {
-    const checkConfiguration = async () => {
+    const checkSetup = async () => {
       try {
-        const characterConfig = await wizardService.loadCharacterConfig();
-        const hasPersona = config.persona.isInitialized && !!config.apiKey;
-        setIsConfigured(!!characterConfig || hasPersona);
+        await config.loadConfig();
+        
+        const hasApi = config.apiKey.length > 0 && config.apiUrl.length > 0;
+        const hasPersona = config.persona.isInitialized;
+        
+        if (!hasApi) {
+          // 需要配置 API
+          setSetupState('needs-api');
+        } else if (!hasPersona) {
+          // 需要配置角色
+          setSetupState('needs-persona');
+        } else {
+          // 已完成
+          setSetupState('completed');
+        }
       } catch (error) {
-        console.error('检查配置状态失败:', error);
-        setIsConfigured(false);
+        console.error('检查设置状态失败:', error);
+        setSetupState('needs-api');
       }
     };
 
-    config.loadConfig();
-    checkConfiguration();
+    checkSetup();
   }, [config]);
 
-  // 配置状态未确定时，显示加载
-  if (isConfigured === null) {
+  // 加载状态
+  if (setupState === 'loading') {
     return (
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Loading" component={() => (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="hourglass-outline" size={48} color="#4A90E2" />
-              <Text style={{ marginTop: 16 }}>正在加载...</Text>
+              <Text style={{ marginTop: 16, color: '#333' }}>正在加载...</Text>
             </View>
           )} />
         </Stack.Navigator>
@@ -105,8 +146,19 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
-  // Show wizard screen if not configured
-  if (!isConfigured) {
+  // 需要配置 API
+  if (setupState === 'needs-api') {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="SetupStack" component={SetupStack} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
+  // 需要配置角色
+  if (setupState === 'needs-persona') {
     return (
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -116,6 +168,7 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
+  // 已完成，显示主界面
   return (
     <NavigationContainer>
       <Tab.Navigator

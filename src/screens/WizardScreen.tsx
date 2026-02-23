@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { CollectedInfo } from '../constants/wizardPrompt';
 import { wizardService } from '../services/wizardService';
@@ -26,6 +27,7 @@ interface Message {
 }
 
 const WizardScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [collectedInfo, setCollectedInfo] = useState<CollectedInfo>({
     childName: '',
@@ -156,8 +158,11 @@ const WizardScreen: React.FC = () => {
           { 
             text: '立即体验', 
             onPress: () => {
-              // 这里应该导航到主应用界面
-              console.log('配置完成，导航到主界面');
+              // 导航到主应用界面（会重新检查配置并显示主界面）
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'SetupStack' as never }],
+              });
             }
           }
         ]
