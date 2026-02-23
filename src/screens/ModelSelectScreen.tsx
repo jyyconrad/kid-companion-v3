@@ -24,9 +24,9 @@ interface ModelSelectScreenProps {
 
 export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
   const config = useAppConfig();
-  const [selectedChatModel, setSelectedChatModel] = useState(config.models.chat);
-  const [selectedStoryModel, setSelectedStoryModel] = useState(config.models.story);
-  const [selectedScienceModel, setSelectedScienceModel] = useState(config.models.science);
+  const [selectedChatModel, setSelectedChatModel] = useState(config.models.chat || 'deepseek-ai/DeepSeek-V3.2');
+  const [selectedStoryModel, setSelectedStoryModel] = useState(config.models.story || 'deepseek-ai/DeepSeek-V3.2');
+  const [selectedScienceModel, setSelectedScienceModel] = useState(config.models.science || 'deepseek-ai/DeepSeek-V3.2');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +64,16 @@ export const ModelSelectScreen: React.FC<ModelSelectScreenProps> = (props) => {
       const modelIds = data.data.map((model: Model) => model.id);
       setAvailableModels(modelIds);
 
-      // 如果之前选择的模型不在列表中，选择第一个列表中的模型
+      // 如果之前选择的模型不在列表中，选择 DeepSeek V3.2 或第一个模型
+      const defaultModel = 'deepseek-ai/DeepSeek-V3.2';
       if (!modelIds.includes(selectedChatModel) && modelIds.length > 0) {
-        setSelectedChatModel(modelIds[0]);
+        setSelectedChatModel(modelIds.includes(defaultModel) ? defaultModel : modelIds[0]);
+      }
+      if (!modelIds.includes(selectedStoryModel) && modelIds.length > 0) {
+        setSelectedStoryModel(modelIds.includes(defaultModel) ? defaultModel : modelIds[0]);
+      }
+      if (!modelIds.includes(selectedScienceModel) && modelIds.length > 0) {
+        setSelectedScienceModel(modelIds.includes(defaultModel) ? defaultModel : modelIds[0]);
       }
     } catch (error) {
       console.error('Load models error:', error);

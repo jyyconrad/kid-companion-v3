@@ -40,12 +40,12 @@ export interface AppConfig {
 
 // 默认配置
 export const defaultConfig: AppConfig = {
-  apiUrl: 'https://api.openai.com/v1',
+  apiUrl: 'https://api.siliconflow.cn/v1',
   apiKey: '',
   models: {
-    chat: 'gpt-3.5-turbo',
-    story: 'gpt-3.5-turbo',
-    science: 'gpt-3.5-turbo',
+    chat: 'deepseek-ai/DeepSeek-V3.2',
+    story: 'deepseek-ai/DeepSeek-V3.2',
+    science: 'deepseek-ai/DeepSeek-V3.2',
   },
   features: {
     chat: {
