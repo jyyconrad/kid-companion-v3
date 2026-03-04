@@ -34,7 +34,10 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       const text = e.value?.[0] || '';
       console.log('识别结果:', text);
       setRecognizedText(text);
-      onSpeechRecognized(text);
+      // 只在有有效文本时回调，避免空触发
+      if (text && text.trim().length > 0) {
+        onSpeechRecognized(text);
+      }
     };
 
     Voice.onSpeechError = (e) => {
@@ -45,8 +48,15 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       setIsRecording(false);
     };
 
+    // 清理函数：确保资源正确释放
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      Voice.destroy().then(() => {
+        Voice.removeAllListeners();
+        // 停止任何正在进行的录音
+        Voice.stop().catch(console.warn);
+      });
+      // 停止任何正在进行的语音播放
+      Speech.stop().catch(console.warn);
     };
   }, [onSpeechRecognized, onSpeechError]);
 
@@ -55,6 +65,12 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       setError(null);
       setRecognizedText('');
       
+      // 互斥：录音前停止播放
+      if (isPlaying) {
+        await Speech.stop();
+        setIsPlaying(false);
+      }
+      
       // 开始录音（@react-native-voice/voice 会自动请求权限）
       await Voice.start('zh-CN');
       setIsRecording(true);
@@ -62,6 +78,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       console.error('启动录音失败:', err);
       setError(err.message || '启动录音失败');
       onSpeechError?.(err);
+      setIsRecording(false);
     }
   };
 
@@ -75,11 +92,11 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     }
   };
 
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     if (isRecording) {
-      stopRecording();
+      await stopRecording();
     } else {
-      startRecording();
+      await startRecording();
     }
   };
 
@@ -87,6 +104,15 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     if (!text) return;
     
     try {
+      // 互斥：播放前停止录音
+      if (isRecording) {
+        await Voice.stop();
+        setIsRecording(false);
+      }
+      
+      // 停止之前的播放（避免叠加）
+      await Speech.stop();
+      
       setIsPlaying(true);
       await Speech.speak(text, {
         language: 'zh-CN',

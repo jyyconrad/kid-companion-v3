@@ -106,7 +106,7 @@ const SetupStack = () => {
 
 export const AppNavigator: React.FC = () => {
   const config = useAppConfig();
-  const [setupState, setSetupState] = useState<'loading' | 'needs-api' | 'needs-persona' | 'completed'>('loading');
+  const [setupState, setSetupState] = useState<'loading' | 'needs-api' | 'needs-model' | 'needs-persona' | 'completed'>('loading');
 
   useEffect(() => {
     const checkSetup = async () => {
@@ -114,11 +114,15 @@ export const AppNavigator: React.FC = () => {
         await config.loadConfig();
         
         const hasApi = config.apiKey && config.apiKey.length > 0 && config.apiUrl && config.apiUrl.length > 0;
+        const hasModel = config.model && config.model.length > 0;
         const hasPersona = config.persona && config.persona.isInitialized;
         
         if (!hasApi) {
           // 需要配置 API
           setSetupState('needs-api');
+        } else if (!hasModel) {
+          // 需要选择模型
+          setSetupState('needs-model');
         } else if (!hasPersona) {
           // 需要配置角色
           setSetupState('needs-persona');
@@ -157,6 +161,17 @@ export const AppNavigator: React.FC = () => {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="SetupStack" component={SetupStack} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
+  // 需要选择模型
+  if (setupState === 'needs-model') {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="ModelSelectScreen" component={ModelSelectScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     );

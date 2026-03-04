@@ -23,24 +23,24 @@ export const GuideStep2: React.FC<GuideStep2Props> = ({ onNext, onBack }) => {
 
   const handleTestConnection = async () => {
     if (!apiUrl || !apiKey) {
-      Alert.alert('提示', '请先填写API URL和Key');
+      Alert.alert('提示', '请先填写 API URL 和 Key');
       return;
     }
 
     setIsTesting(true);
     try {
-      // TODO: 调用AI服务测试连接
+      // TODO: 调用 AI 服务测试连接
       await new Promise(resolve => setTimeout(resolve, 1000));
-      Alert.alert('连接成功', 'API配置有效');
+      Alert.alert('连接成功', 'API 配置有效');
     } catch (error) {
-      Alert.alert('连接失败', '请检查API配置');
+      Alert.alert('连接失败', '请检查 API 配置');
     }
     setIsTesting(false);
   };
 
   const handleNext = () => {
     if (!apiUrl || !apiKey) {
-      Alert.alert('提示', '请填写API URL和Key');
+      Alert.alert('提示', '请填写 API URL 和 Key');
       return;
     }
 
@@ -53,18 +53,26 @@ export const GuideStep2: React.FC<GuideStep2Props> = ({ onNext, onBack }) => {
     <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.step}>步骤 2/3</Text>
-        <Text style={styles.title}>配置API</Text>
+        <Text style={styles.title}>配置 API</Text>
         <Text style={styles.description}>
-          请输入您的AI服务提供商的API信息
+          首先，我们需要配置 AI 服务的访问凭证
         </Text>
 
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>💡 如何获取 API Key？</Text>
+          <Text style={styles.infoText}>1. 访问硅基流动官网：https://siliconflow.cn</Text>
+          <Text style={styles.infoText}>2. 注册/登录账号</Text>
+          <Text style={styles.infoText}>3. 在控制台获取 API Key</Text>
+          <Text style={styles.infoText}>4. 新用户有免费额度</Text>
+        </View>
+
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>模型供应商URL</Text>
+          <Text style={styles.label}>模型供应商 URL</Text>
           <TextInput
             style={styles.input}
             value={apiUrl}
             onChangeText={setApiUrl}
-            placeholder="https://api.openai.com/v1"
+            placeholder="https://api.siliconflow.cn/v1"
             placeholderTextColor="#999"
             autoCapitalize="none"
             autoCorrect={false}
@@ -93,7 +101,7 @@ export const GuideStep2: React.FC<GuideStep2Props> = ({ onNext, onBack }) => {
           {isTesting ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>测试连接</Text>
+            <Text style={styles.buttonText}>🔗 测试连接</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -138,6 +146,24 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 24,
     marginBottom: 32,
+  },
+  infoBox: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1976D2',
+    marginBottom: 12,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#424242',
+    marginBottom: 4,
+    lineHeight: 20,
   },
   inputContainer: {
     marginBottom: 24,
