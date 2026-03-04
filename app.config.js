@@ -4,8 +4,8 @@
  * @type {import('expo').ConfigFunction}
  */
 export default () => ({
-  name: "kid-companion-jyy",
-  slug: "kid-companion-jyy",
+  name: "kid-companion-v3",
+  slug: "kid-companion-v3",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
@@ -36,8 +36,6 @@ export default () => ({
   ],
   extra: {
     router: {},
-    eas: {
-      projectId: "9b5b723a-f716-4531-a2dd-5415177e41bd"
-    }
+    eas: {}
   }
 });
