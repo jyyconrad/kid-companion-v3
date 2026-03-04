@@ -1,6 +1,5 @@
-import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { useAppConfig } from '../store/useAppConfig';
+import { OpenAIClient } from '../lib/openai-client';
 
 // 配置字段类型
 type ConfigField = 'childName' | 'childAge' | 'interests' | 'aiName' | 'aiStyle';
@@ -60,20 +59,24 @@ class VoiceWizardService {
       throw new Error('请先配置 API Key');
     }
 
-    const openai = createOpenAI({
+    const client = new OpenAIClient({
       apiKey,
       baseURL: apiUrl || 'https://api.siliconflow.cn/v1',
+      model: models?.chat || 'deepseek-ai/DeepSeek-V3',
     });
 
     const prompt = this.buildExtractionPrompt(transcript, currentStep);
 
     try {
-      const result = await streamText({
-        model: openai(models?.chat || 'deepseek-ai/DeepSeek-V3'),
-        prompt,
+      const result = await client.chat({
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        maxTokens: 1024,
       });
 
-      const text = await result.text;
+      const text = result.text;
       return this.parseExtractionResult(text, currentStep, transcript);
     } catch (error) {
       console.error('Voice config extraction error:', error);

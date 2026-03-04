@@ -5,7 +5,6 @@
  * 使用搜狗搜索（国内免费，无需 API Key）
  */
 
-import { tool } from 'ai';
 import { z } from 'zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { KnowledgeItem } from './knowledge';
@@ -17,66 +16,73 @@ export interface SearchResult {
 }
 
 /**
- * Web Search 工具定义
- * 使用搜狗搜索（国内免费，无需 API Key）
+ * Web Search 工具定义 (OpenAI Tool Format)
  */
-export const webSearchTool = tool({
-  description: '搜索网络信息，获取实时知识和新闻（使用搜狗搜索）',
-  parameters: z.object({
-    query: z.string().describe('搜索关键词'),
-    numResults: z.number().optional().describe('返回数量 (默认 5)'),
-  }),
-  execute: async ({ query, numResults = 5 }: { query: string; numResults?: number }) => {
-    try {
-      // 构建搜狗搜索 URL
-      const url = `https://www.sogou.com/web?query=${encodeURIComponent(query)}`;
-      
-      // 随机延迟（1-3 秒）避免触发反爬
-      const delay = Math.random() * 2000 + 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // 调用搜狗搜索
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`搜狗搜索返回 ${response.status}`);
-      }
-
-      const html = await response.text();
-      
-      // 检查是否返回验证码页面
-      if (html.includes('captcha') || html.includes('验证码')) {
-        throw new Error('触发验证码，请稍后重试');
-      }
-      
-      // 解析 HTML 提取搜索结果
-      const results = parseSogouHTML(html, numResults);
-      
-      if (results.length === 0) {
-        throw new Error('未找到相关结果');
-      }
-
-      return {
-        success: true,
-        query,
-        results,
-        count: results.length,
-        source: 'Sogou',
-      };
-    } catch (error: any) {
-      console.error('搜狗搜索失败，降级到本地知识库:', error);
-      
-      // 降级到本地知识库
-      return await fallbackToKnowledge(query);
-    }
+export const webSearchToolDefinition = {
+  type: 'function' as const,
+  function: {
+    name: 'webSearch',
+    description: '搜索网络信息，获取实时知识和新闻（使用搜狗搜索）',
+    parameters: z.object({
+      query: z.string().describe('搜索关键词'),
+      numResults: z.number().optional().describe('返回数量 (默认 5)'),
+    }).strict(),
   },
-}) as any;
+};
+
+/**
+ * 执行 Web Search
+ */
+export async function executeWebSearch({ query, numResults = 5 }: { query: string; numResults?: number }) {
+  try {
+    // 构建搜狗搜索 URL
+    const url = `https://www.sogou.com/web?query=${encodeURIComponent(query)}`;
+    
+    // 随机延迟（1-3 秒）避免触发反爬
+    const delay = Math.random() * 2000 + 1000;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    // 调用搜狗搜索
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`搜狗搜索返回 ${response.status}`);
+    }
+
+    const html = await response.text();
+    
+    // 检查是否返回验证码页面
+    if (html.includes('captcha') || html.includes('验证码')) {
+      throw new Error('触发验证码，请稍后重试');
+    }
+    
+    // 解析 HTML 提取搜索结果
+    const results = parseSogouHTML(html, numResults);
+    
+    if (results.length === 0) {
+      throw new Error('未找到相关结果');
+    }
+
+    return {
+      success: true,
+      query,
+      results,
+      count: results.length,
+      source: 'Sogou',
+    };
+  } catch (error: any) {
+    console.error('搜狗搜索失败，降级到本地知识库:', error);
+    
+    // 降级到本地知识库
+    return await fallbackToKnowledge(query);
+  }
+}
 
 /**
  * 解析搜狗搜索 HTML
@@ -180,35 +186,43 @@ async function fallbackToKnowledge(query: string) {
 }
 
 /**
- * 简化版搜索（适用于儿童）
+ * 简化版搜索工具定义 (OpenAI Tool Format)
  */
-export const kidsSearchTool = tool({
-  description: '为儿童搜索适合的知识内容',
-  parameters: z.object({
-    question: z.string().describe('孩子的问题'),
-    category: z.enum(['animal', 'plant', 'space', 'science', 'history']).optional(),
-  }),
-  execute: async ({ question, category }: { question: string; category?: 'animal' | 'plant' | 'space' | 'science' | 'history' }) => {
-    // 构建适合儿童的搜索词
-    const searchQuery = `${category || '知识'} ${question} 儿童版`;
-    
-    // 调用搜狗搜索
-    const result: any = await (webSearchTool as any).execute({ query: searchQuery, numResults: 3 });
-    
-    // 过滤和简化内容
-    if (result && result.success) {
-      return {
-        ...result,
-        results: (result.results || []).map((r: any) => ({
-          ...r,
-          snippet: simplifyContentForKids(r.snippet),
-        })),
-      };
-    }
-    
-    return result;
+export const kidsSearchToolDefinition = {
+  type: 'function' as const,
+  function: {
+    name: 'kidsSearch',
+    description: '为儿童搜索适合的知识内容',
+    parameters: z.object({
+      question: z.string().describe('孩子的问题'),
+      category: z.enum(['animal', 'plant', 'space', 'science', 'history']).optional().describe('知识分类'),
+    }).strict(),
   },
-}) as any;
+};
+
+/**
+ * 执行儿童搜索
+ */
+export async function executeKidsSearch({ question, category }: { question: string; category?: 'animal' | 'plant' | 'space' | 'science' | 'history' }) {
+  // 构建适合儿童的搜索词
+  const searchQuery = `${category || '知识'} ${question} 儿童版`;
+  
+  // 调用搜狗搜索
+  const result = await executeWebSearch({ query: searchQuery, numResults: 3 });
+  
+  // 过滤和简化内容
+  if (result && result.success) {
+    return {
+      ...result,
+      results: (result.results || []).map((r: SearchResult) => ({
+        ...r,
+        snippet: simplifyContentForKids(r.snippet),
+      })),
+    };
+  }
+  
+  return result;
+}
 
 /**
  * 简化内容适合儿童阅读
