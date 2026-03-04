@@ -114,7 +114,7 @@ export const AppNavigator: React.FC = () => {
         await config.loadConfig();
         
         const hasApi = config.apiKey && config.apiKey.length > 0 && config.apiUrl && config.apiUrl.length > 0;
-        const hasModel = config.model && config.model.length > 0;
+        const hasModel = config.models && config.models.chat && config.models.chat.length > 0;
         const hasPersona = config.persona && config.persona.isInitialized;
         
         if (!hasApi) {
