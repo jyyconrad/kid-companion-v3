@@ -20,6 +20,7 @@ import { wizardService } from '../services/wizardService';
 import { MessageBubble } from '../components/MessageBubble';
 import { VoiceInput } from '../components/VoiceInput';
 import { aiService } from '../services/aiService';
+import { voiceWizardService, WIZARD_STEPS } from '../services/VoiceWizardService';
 
 interface Message {
   id: string;
@@ -45,6 +46,7 @@ const WizardScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0); // 当前向导步骤
 
   // 初始化时加载已保存的信息
   useEffect(() => {
@@ -306,9 +308,52 @@ ${info.interests?.join('、') || '各种有趣的事物'}
         {!isComplete && (
           <>
             <VoiceInput
-              onSpeechRecognized={(text) => {
+              onSpeechRecognized={async (text) => {
                 setInputText(text);
-                handleSend();
+                // 语音输入后自动处理配置
+                if (text.trim()) {
+                  addUserMessage(text);
+                  setIsLoading(true);
+                  
+                  try {
+                    const step = WIZARD_STEPS[currentStep];
+                    if (step) {
+                      // 使用语音配置服务提取信息
+                      const result = await voiceWizardService.processVoiceForConfig(text, step);
+                      
+                      if (result.confidence > 0.6) {
+                        // 置信度足够，更新配置
+                        const updatedInfo = { ...collectedInfo };
+                        (updatedInfo as any)[result.field] = result.value;
+                        setCollectedInfo(updatedInfo);
+                        await wizardService.saveCollectedInfo(updatedInfo);
+                        
+                        // 生成 AI 回复
+                        const aiResponse = await aiService.sendMessage(
+                          text,
+                          { context: { collectedInfo: updatedInfo, isWizard: true } }
+                        );
+                        addAiMessage(aiResponse);
+                        
+                        // 进入下一步
+                        if (currentStep < WIZARD_STEPS.length - 1) {
+                          setCurrentStep(currentStep + 1);
+                        } else {
+                          // 完成配置
+                          completeWizard(updatedInfo);
+                        }
+                      } else {
+                        // 置信度不够，让用户确认
+                        addAiMessage(`你是说"${result.value}"吗？请确认一下 😊`);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Voice wizard error:', error);
+                    addAiMessage('抱歉，我没听清楚，能再说一次吗？');
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }
               }}
             />
             <View style={styles.inputContainer}>

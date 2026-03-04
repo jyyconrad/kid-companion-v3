@@ -14,6 +14,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { MessageInput } from '../components/MessageInput';
 import { VoiceInput } from '../components/VoiceInput';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { ImageResult } from '../components/MarkdownRenderer';
 import { aiService, Message as AIMessage } from '../services/aiService';
 import { useAppConfig } from '../store/useAppConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -317,6 +318,7 @@ ${isFirstVisit ? '这是第一次见面，要说很高兴认识你' : '这是再
             role={item.role as 'user' | 'assistant'}
             content={item.content}
             timestamp={item.timestamp}
+            images={item.images as any}
           />
         )}
         contentContainerStyle={styles.messageList}

@@ -1,17 +1,32 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Markdown from 'react-native-markdown-display';
+import { View, Text, StyleSheet, Linking } from 'react-native';
+import { MarkdownRenderer, ImageResult } from './MarkdownRenderer';
 import { useAppConfig } from '../store/useAppConfig';
 
 export interface MessageBubbleProps {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  images?: ImageResult[];
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content, timestamp }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+  role, 
+  content, 
+  timestamp,
+  images 
+}) => {
   const isUser = role === 'user';
   const { language = 'zh-CN' } = useAppConfig.getState();
+
+  const handleLinkPress = (url: string) => {
+    Linking.openURL(url).catch(() => {});
+  };
+
+  const handleImagePress = (image: ImageResult) => {
+    // 可以在这里实现图片预览
+    console.log('Image pressed:', image.title);
+  };
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
@@ -19,7 +34,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content, tim
         {isUser ? (
           <Text style={styles.userText}>{content}</Text>
         ) : (
-          <Markdown style={markdownStyles}>{content}</Markdown>
+          <MarkdownRenderer 
+            content={content}
+            images={images}
+            onLinkPress={handleLinkPress}
+            onImagePress={handleImagePress}
+          />
         )}
         <Text style={[styles.timestamp, isUser ? styles.userTimestamp : styles.aiTimestamp]}>
           {new Date(timestamp).toLocaleTimeString(language, {

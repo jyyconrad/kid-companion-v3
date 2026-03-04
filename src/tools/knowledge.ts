@@ -27,7 +27,11 @@ export const knowledgeTool = tool({
     category: z.string().optional().describe('知识分类'),
     limit: z.number().optional().describe('返回数量 (默认 5)'),
   }),
-  execute: async ({ query, category, limit }: { query: string; category?: string; limit?: number }) => {
+  execute: async ({ query, category, limit }: { 
+    query: string; 
+    category?: string; 
+    limit?: number 
+  }) => {
     try {
       const actualLimit = limit || 5;
       

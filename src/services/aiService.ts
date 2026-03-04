@@ -17,12 +17,21 @@ import { aiGetConfig, aiUpdateConfig, aiParseAndUpdate } from '../utils/aiFileTo
 import { webSearchTool, kidsSearchTool } from '../tools/webSearch';
 import { knowledgeTool, addKnowledgeTool } from '../tools/knowledge';
 import { websiteReaderTool, batchReadWebsitesTool } from '../tools/websiteReader';
+import { imageSearchTool } from '../tools/imageSearchTool';
 
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  images?: Array<{
+    url: string;
+    thumbnail: string;
+    title: string;
+    source: string;
+    width?: number;
+    height?: number;
+  }>;
 }
 
 export interface StreamCallbacks {
@@ -81,7 +90,7 @@ export class AIService {
       const model = openai(models.chat);
 
       // 定义工具（使用类型断言绕过 Vercel AI SDK 类型限制）
-      const tools: any = {
+      const tools = {
         getConfig: tool({
           description: '获取配置信息（孩子名字、年龄、兴趣等）',
           parameters: z.object({
@@ -106,11 +115,12 @@ export class AIService {
         }) as any,
         webSearch: webSearchTool as any,
         kidsSearch: kidsSearchTool as any,
+        imageSearch: imageSearchTool as any,
         knowledge: knowledgeTool as any,
         addKnowledge: addKnowledgeTool as any,
         websiteReader: websiteReaderTool as any,
         batchReadWebsites: batchReadWebsitesTool as any,
-      };
+      } as any;
 
       // 流式调用 AI
       const result = streamText({

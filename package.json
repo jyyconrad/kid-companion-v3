@@ -19,6 +19,7 @@
     "@react-navigation/native": "^6.1.0",
     "@react-navigation/stack": "^6.4.0",
     "@types/node": "^18.17.0",
+    "@vercel/oidc": "^3.2.0",
     "ai": "^6.0.97",
     "expo": "^51.0.0",
     "expo-av": "~14.0.7",
